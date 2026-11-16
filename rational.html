@@ -52,6 +52,34 @@
   .tbl tr.now td { background:rgba(255,255,255,.14); color:#fff; }
   .tbl tr.wait td { color:transparent; }
   .hint { position:fixed; left:28px; bottom:18px; font-size:13px; color:#56628a; z-index:2; }
+
+  @media (max-width:899px) {
+    .top { left:12px; top:10px; gap:10px; } .top h1 { font-size:16px; }
+    .tabs button { font-size:13px; padding:5px 10px; }
+    .eq { left:10px; top:50px; font-size:26px; padding:4px 12px; }
+    aside { left:0; right:0; top:auto; bottom:0; width:auto; max-height:40vh; overflow-y:auto; border-radius:18px 18px 0 0; padding:12px 14px; }
+    .ctl { margin-bottom:8px; } .ctl .lab b { font-size:22px; }
+    .btns button { font-size:13px; padding:6px 9px; }
+    .info { font-size:13px; line-height:1.7; }
+    .hint { display:none; }
+    .big { left:50%; bottom:calc(40vh + 10px); font-size:15px; padding:7px 14px; white-space:normal; width:90vw; text-align:center; }
+    .tbl { top:118px !important; left:8px; font-size:14px !important; min-width:0; padding:6px 8px; }
+    .stepbar { bottom:calc(40vh + 12px) !important; } .stepbar button { font-size:15px !important; padding:9px 13px !important; }
+    .big { bottom:calc(40vh + 70px) !important; }
+  }
+
+  @media (max-height:860px) and (min-width:900px) {
+    aside { top:70px; padding:12px 16px; max-height:calc(100vh - 80px); overflow-y:auto; }
+    .ctl { margin-bottom:8px; } .ctl .lab b { font-size:24px; }
+    .btns button { padding:5px 10px; font-size:14px; }
+    .info { margin-top:8px; padding-top:8px; font-size:14px; line-height:1.6; }
+    .eq { font-size:38px; top:64px; }
+    .tbl { top:150px; font-size:16px; padding:6px 10px; } .tbl td { padding:1px 8px; }
+  }
+  canvas { touch-action:none; }
+  .stepbar { position:fixed; left:50%; transform:translateX(-50%); bottom:84px; z-index:3; display:flex; gap:10px; }
+  .stepbar button { font:inherit; font-size:18px; font-weight:700; color:#0b1020; background:#e8eefc; border:0; border-radius:14px; padding:12px 20px; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,.4); }
+  .stepbar button.ghost { background:rgba(18,26,48,.85); color:#e8eefc; border:1px solid var(--edge); }
 </style>
 </head>
 <body>
@@ -64,6 +92,7 @@
 <div class="eq" id="eq"></div>
 <div class="big" id="big"></div>
 <div class="tbl hide" id="tbl"></div>
+<div class="stepbar hide" id="stepbar"><button class="ghost" id="sPrev">◀ 이전 점</button><button id="sPause">일시정지 ‖</button><button class="ghost" id="sNext">다음 점 ▶</button></div>
 
 <aside>
   <div class="ctl">
@@ -101,6 +130,7 @@
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 const POS = "#4fe3ff", NEG = "#ff6fb5", ASY = "#ffb547";
+let MOB = false, RE = 0, BE = 0;
 let W, H, S, ox, oy, dpr;
 let mode = 1;
 let K = 1, Kt = 1, P = 0, Pt = 0, Q = 0, Qt = 0;
@@ -110,10 +140,12 @@ let S0 = 40, Z = 1, Zt = 1, probeOn = false;
 let plot = null;   // 점 찍어 그리기 상태
 
 function resize() {
-  dpr = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
+  dpr = Math.min(devicePixelRatio || 1, 1.5); W = innerWidth; H = innerHeight;
   cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  S0 = Math.min(W - 380, H) / 19; S = S0 * Z;
-  ox = (W - 360) / 2 + 10; oy = H / 2 + 30;
+  MOB = W < 900; RE = MOB ? W : W - 370; BE = MOB ? H * 0.6 : H;
+  if (MOB) { S0 = Math.min(W, BE - 90) / 14; ox = W / 2; oy = (BE + 90) / 2; }
+  else { S0 = Math.min(W - 380, H) / 19; ox = (W - 360) / 2 + 10; oy = H / 2 + 30; }
+  S = S0 * Z;
 }
 const X = x => ox + x * S, Y = y => oy - y * S;
 const xmin = () => -ox / S, xmax = () => (W - ox) / S, ymin = () => -(H - oy) / S, ymax = () => oy / S;
@@ -123,7 +155,7 @@ const colorOf = k => k >= 0 ? POS : NEG;
 function curvePath(k, p, q) {
   const paths = [];
   for (const side of [-1, 1]) {
-    const pts = [], a = side < 0 ? xmin() - 1 : p, b = side < 0 ? p : xmax() + 1, n = 500;
+    const pts = [], a = side < 0 ? xmin() - 1 : p, b = side < 0 ? p : xmax() + 1, n = 300;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       const x = side < 0 ? p - (p - a) * Math.pow(1 - t, 3) - 1e-4 : p + (b - p) * Math.pow(t, 3) + 1e-4;
@@ -135,10 +167,13 @@ function curvePath(k, p, q) {
   }
   return paths;
 }
-function stroke(paths, color, width, alpha, glow) {
-  ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = ctx.lineCap = "round";
-  if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
-  for (const pts of paths) { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
+function stroke(paths, color, width, alpha, glow, dash) {
+  // 그림자 흐림(shadowBlur) 대신 넓고 옅은 선을 겹쳐 빛나 보이게 함 → 교실 PC·패드에서도 가볍게
+  ctx.save(); ctx.strokeStyle = color; ctx.lineJoin = ctx.lineCap = "round";
+  if (dash) ctx.setLineDash(dash);
+  const draw = () => { for (const pts of paths) { if (pts.length < 2) continue; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); } };
+  if (glow) { ctx.globalAlpha = alpha * .10; ctx.lineWidth = width + glow * .9; draw(); ctx.globalAlpha = alpha * .22; ctx.lineWidth = width + glow * .35; draw(); }
+  ctx.globalAlpha = alpha; ctx.lineWidth = width; draw();
   ctx.restore();
 }
 
@@ -160,7 +195,7 @@ function drawGrid() {
   for (let y = Math.ceil(ymin() / lab) * lab; y <= ymax(); y += lab) if (Math.abs(y) > 1e-9) ctx.fillText(+y.toFixed(1), X(0) - 7, Y(y) + 4);
   ctx.fillText("O", X(0) - 6, Y(0) + 17);
   ctx.font = "italic 20px 'Times New Roman'"; ctx.fillStyle = "rgba(220,230,250,.85)"; ctx.textAlign = "left";
-  ctx.fillText("x", W - 400 + 18, Y(0) - 9); ctx.fillText("y", X(0) + 9, 96);
+  ctx.fillText("x", RE - 22, Y(0) - 9); ctx.fillText("y", X(0) + 9, MOB ? 100 : 96);
 }
 
 function drawAsymptotes() {
@@ -209,7 +244,7 @@ function drawProbe() {
     ctx.shadowColor = "#fff"; ctx.shadowBlur = 18; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(X(x), Y(y), 6, 0, 7); ctx.fill(); ctx.restore();
     ctx.font = "bold 17px 'Malgun Gothic'"; ctx.fillStyle = "#fff";
     const w = ctx.measureText(t).width;
-    ctx.fillText(t, k === "x" ? Math.min(X(x) - w / 2, W - 380 - w) : X(x) + 14, k === "x" ? Y(y) + (K > 0 ? -16 : 28) : Y(y) + 6);
+    ctx.fillText(t, k === "x" ? Math.min(X(x) - w / 2, RE - 10 - w) : X(x) + 14, k === "x" ? Y(y) + (K > 0 ? -16 : 28) : Y(y) + 6);
   }
 }
 
@@ -222,25 +257,25 @@ function fracStr(n, d) {                     // n/d 를 기약분수 문자열�
   return d === 1 ? sg + n : `${sg}${n}/${d}`;
 }
 function startPlot() {
-  stopAll(); probeOn = false; $("asym").classList.remove("on"); zoomTo(1); trails = []; rectOn = false; $("rect").classList.remove("on");
+  stopAll(); probeOn = false; $("asym").classList.remove("on"); zoomTo(1); Z = 1; S = S0; trails = []; rectOn = false; $("rect").classList.remove("on");
   K = Kt; P = Pt; Q = Qt;
-  const offs = [[1, 4], [1, 2], [1, 1], [2, 1], [3, 1], [4, 1], [6, 1], [8, 1]];   // x - p = a/b
+  const offs = [[1, 2], [1, 1], [2, 1], [4, 1], [8, 1]];   // x - p = a/b
   const k2 = Math.round(K * 2), p2 = Math.round(P * 2), q2 = Math.round(Q * 2);
   const pts = [];
   for (const side of [1, -1]) for (const [a, b] of (side > 0 ? offs : offs.slice().reverse())) {
     const dx = side * a / b, x = P + dx, y = K / dx + Q;
-    if (y < ymin() + .3 || y > ymax() - .6 || X(x) > W - 370 || X(x) < 10) continue;
+    if (y < ymin() + .3 || y > ymax() - .6 || X(x) > RE - 60 || X(x) < 10 || Y(y) > BE - 20) continue;
     // x = (p2*b + 2*side*a) / (2b),  y = (k2*b)/(2*side*a) + q2/2 = (k2*b + q2*side*a) / (2*side*a)
     pts.push({ x, y, xs: fracStr(p2 * b + 2 * side * a, 2 * b), ys: fracStr(k2 * b + q2 * side * a, 2 * side * a), side });
   }
   pts.sort((u, v) => u.side !== v.side ? v.side - u.side : u.x - v.x);
   plot = { pts, t: 0, n: 0, paused: false };
   $("tbl").innerHTML = `<table><tr><th>x</th><th>y</th></tr>${pts.map((p, i) => `<tr id="r${i}" class="wait"><td>${p.xs}</td><td>${p.ys}</td></tr>`).join("")}</table>`;
-  $("tbl").classList.remove("hide");
+  $("tbl").classList.remove("hide"); $("stepbar").classList.remove("hide"); syncPause();
   $("plot").classList.add("on"); $("plot").textContent = "일시정지 ‖";
   flash(mode === 1 ? "x에 값을 넣어 y를 구하고, 점을 찍어 보자" : "먼저 점근선을 긋고, 점을 찍어 보자");
 }
-function endPlot() { plot = null; $("tbl").classList.add("hide"); $("plot").classList.remove("on"); $("plot").textContent = "점 찍어 그리기 ▶"; }
+function endPlot() { plot = null; $("tbl").classList.add("hide"); $("stepbar").classList.add("hide"); $("plot").classList.remove("on"); $("plot").textContent = "점 찍어 그리기 ▶"; }
 function partialBranch(side, x0, x1) {        // 한 가지(branch)를 x0~x1 까지만
   const pts = [], n = 300;
   for (let i = 0; i <= n; i++) {
@@ -254,7 +289,7 @@ function drawPlot() {
   const pl = plot, c = colorOf(K), STEP = 50, lead = mode === 2 ? 70 : 20;
   pl.STEP = STEP; pl.lead = lead; pl.doneT = lead + pl.pts.length * STEP + 20;
   if (!pl.paused) pl.t++;
-  if (pl.paused) { ctx.save(); ctx.font = "bold 22px 'Malgun Gothic'"; ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.fillText("‖ 일시정지  (P: 계속 · ←→: 한 점씩)", 24, H - 50); ctx.restore(); }
+  if (pl.paused) { ctx.save(); ctx.font = "bold 22px 'Malgun Gothic'"; ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.fillText("‖ 일시정지", 24, BE - 50); ctx.restore(); }
   const shown = Math.max(0, Math.min(pl.pts.length, Math.floor((pl.t - lead) / STEP) + 1));
   for (let i = 0; i < pl.pts.length; i++) {
     const r = $("r" + i); if (!r) continue;
@@ -418,8 +453,7 @@ $("slide").onclick = () => {
 function togglePause() {
   if (!plot) return startPlot();
   if (plot.doneT && plot.t > plot.doneT) return endPlot();      // 다 그린 뒤 누르면 원래 화면으로
-  plot.paused = !plot.paused;
-  $("plot").textContent = plot.paused ? "계속 ▶" : "일시정지 ‖";
+  plot.paused = !plot.paused; syncPause();
 }
 function stepPlot(d) {                                      // 멈춘 상태에서 한 점씩 앞뒤로
   const n = plot.pts.length, cur = Math.max(0, Math.min(n + 1, Math.floor((plot.t - plot.lead) / plot.STEP) + 1 + (plot.t > plot.doneT ? 1 : 0)));
@@ -427,6 +461,11 @@ function stepPlot(d) {                                      // 멈춘 상태에�
   plot.t = nx > n ? plot.doneT + 121 : plot.lead + (nx - 1) * plot.STEP + 16;
 }
 $("plot").onclick = togglePause;
+$("sPrev").onclick = () => { if (!plot) return; plot.paused = true; syncPause(); stepPlot(-1); };
+$("sNext").onclick = () => { if (!plot) return; plot.paused = true; syncPause(); stepPlot(1); };
+$("sPause").onclick = () => { if (!plot) return; if (plot.doneT && plot.t > plot.doneT) return endPlot(); plot.paused = !plot.paused; syncPause(); };
+function syncPause() { const t = plot && plot.paused ? "계속 ▶" : "일시정지 ‖"; $("sPause").textContent = t; $("plot").textContent = plot ? t : "점 찍어 그리기 ▶"; }
+
 function zoomTo(z) { Zt = Math.max(0.03, Math.min(4, z)); trails = []; lastSnap = null; }
 $("zin").onclick = () => zoomTo(Zt * 1.6);
 $("zout").onclick = () => zoomTo(Zt / 1.6);
