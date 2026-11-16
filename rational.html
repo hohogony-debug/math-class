@@ -78,9 +78,13 @@
     <button class="go on" id="trail">잔상</button>
     <button class="go" id="clear">지우기</button>
   </div>
+  <div class="btns" style="margin-top:7px">
+    <button class="go" id="asym">점근선 보기</button>
+    <button id="zin">＋</button><button id="zout">－</button><button id="zreset">1:1</button>
+  </div>
   <div class="info" id="info"></div>
 </aside>
-<div class="hint">← → 키: k 조절 · F: 전체 화면 · Space: k 움직이기</div>
+<div class="hint">← → 키: k 조절 · 마우스 휠: 확대/축소 · F: 전체 화면 · Space: k 움직이기</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -91,11 +95,12 @@ let mode = 1;
 let K = 1, Kt = 1, P = 0, Pt = 0, Q = 0, Qt = 0;
 let sweeping = false, sweepT = 0, familyT = -1, rectOn = false, trailOn = true;
 let trails = [], frame = 0, lastSnap = null, rideU = 0, bigTimer = null;
+let S0 = 40, Z = 1, Zt = 1, probeOn = false;
 
 function resize() {
   dpr = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  S = Math.min(W - 380, H) / 19;
+  S0 = Math.min(W - 380, H) / 19; S = S0 * Z;
   ox = (W - 360) / 2 + 10; oy = H / 2 + 30;
 }
 const X = x => ox + x * S, Y = y => oy - y * S;
@@ -111,7 +116,7 @@ function curvePath(k, p, q) {
       const t = i / n;
       const x = side < 0 ? p - (p - a) * Math.pow(1 - t, 3) - 1e-4 : p + (b - p) * Math.pow(t, 3) + 1e-4;
       const y = k / (x - p) + q;
-      if (y < ymin() - 3 || y > ymax() + 3) { if (pts.length > 1) paths.push(pts.splice(0)); else pts.length = 0; continue; }
+      if (y < ymin() - 3 / Z || y > ymax() + 3 / Z) { if (pts.length > 1) paths.push(pts.splice(0)); else pts.length = 0; continue; }
       pts.push([X(x), Y(y)]);
     }
     if (pts.length > 1) paths.push(pts);
@@ -131,14 +136,16 @@ function drawGrid() {
   g.addColorStop(0, "rgba(40,60,120,.28)"); g.addColorStop(1, "rgba(7,11,22,0)");
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   ctx.lineWidth = 1;
-  for (let x = Math.ceil(xmin()); x <= xmax(); x++) { ctx.strokeStyle = x % 5 ? "rgba(90,115,170,.10)" : "rgba(90,115,170,.22)"; ctx.beginPath(); ctx.moveTo(X(x), 0); ctx.lineTo(X(x), H); ctx.stroke(); }
-  for (let y = Math.ceil(ymin()); y <= ymax(); y++) { ctx.strokeStyle = y % 5 ? "rgba(90,115,170,.10)" : "rgba(90,115,170,.22)"; ctx.beginPath(); ctx.moveTo(0, Y(y)); ctx.lineTo(W, Y(y)); ctx.stroke(); }
+  const steps = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+  const st = steps.find(v => v * S >= 26) || 500, lab = steps.find(v => v * S >= 60) || 500;
+  for (let x = Math.ceil(xmin() / st) * st; x <= xmax(); x += st) { ctx.strokeStyle = Math.abs(x / lab - Math.round(x / lab)) < 1e-6 ? "rgba(90,115,170,.22)" : "rgba(90,115,170,.10)"; ctx.beginPath(); ctx.moveTo(X(x), 0); ctx.lineTo(X(x), H); ctx.stroke(); }
+  for (let y = Math.ceil(ymin() / st) * st; y <= ymax(); y += st) { ctx.strokeStyle = Math.abs(y / lab - Math.round(y / lab)) < 1e-6 ? "rgba(90,115,170,.22)" : "rgba(90,115,170,.10)"; ctx.beginPath(); ctx.moveTo(0, Y(y)); ctx.lineTo(W, Y(y)); ctx.stroke(); }
   ctx.strokeStyle = "rgba(200,215,245,.55)"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), H); ctx.stroke();
   ctx.fillStyle = "rgba(170,185,220,.6)"; ctx.font = "13px 'Times New Roman'"; ctx.textAlign = "center";
-  for (let x = Math.ceil(xmin()); x <= xmax(); x++) if (x && x % 2 === 0) ctx.fillText(x, X(x), Y(0) + 17);
+  for (let x = Math.ceil(xmin() / lab) * lab; x <= xmax(); x += lab) if (Math.abs(x) > 1e-9) ctx.fillText(+x.toFixed(1), X(x), Y(0) + 17);
   ctx.textAlign = "right";
-  for (let y = Math.ceil(ymin()); y <= ymax(); y++) if (y && y % 2 === 0) ctx.fillText(y, X(0) - 7, Y(y) + 4);
+  for (let y = Math.ceil(ymin() / lab) * lab; y <= ymax(); y += lab) if (Math.abs(y) > 1e-9) ctx.fillText(+y.toFixed(1), X(0) - 7, Y(y) + 4);
   ctx.fillText("O", X(0) - 6, Y(0) + 17);
   ctx.font = "italic 20px 'Times New Roman'"; ctx.fillStyle = "rgba(220,230,250,.85)"; ctx.textAlign = "left";
   ctx.fillText("x", W - 400 + 18, Y(0) - 9); ctx.fillText("y", X(0) + 9, 96);
@@ -175,6 +182,25 @@ function drawRect() {
   }
 }
 
+// 곡선 위의 점이 점근선에 한없이 가까워지는 모습: 오른쪽 끝·위(아래) 끝 근처의 점 값 표시
+function drawProbe() {
+  const c = colorOf(K), f = x => K / (x - P) + Q;
+  const fx = xmax() * 0.82, fy = f(fx);                 // 오른쪽으로 멀리
+  const ty = (K > 0 ? ymax() : ymin()) * 0.78, tx = P + K / (ty - Q);   // 위(아래)로 멀리
+  const pts = [[fx, fy, `x = ${fx.toFixed(fx > 20 ? 0 : 1)}  →  y = ${fy.toFixed(Math.abs(fy - Q) < .01 ? 4 : 3)}`, "x"],
+               [tx, ty, `x = ${tx.toFixed(Math.abs(tx - P) < .01 ? 4 : 3)}  →  y = ${ty.toFixed(ty > 20 ? 0 : 1)}`, "y"]];
+  for (const [x, y, t, k] of pts) {
+    ctx.save(); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (k === "x") { ctx.moveTo(X(x), Y(y)); ctx.lineTo(X(x), Y(Q)); } else { ctx.moveTo(X(x), Y(y)); ctx.lineTo(X(P), Y(y)); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.shadowColor = "#fff"; ctx.shadowBlur = 18; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(X(x), Y(y), 6, 0, 7); ctx.fill(); ctx.restore();
+    ctx.font = "bold 17px 'Malgun Gothic'"; ctx.fillStyle = "#fff";
+    const w = ctx.measureText(t).width;
+    ctx.fillText(t, k === "x" ? Math.min(X(x) - w / 2, W - 380 - w) : X(x) + 14, k === "x" ? Y(y) + (K > 0 ? -16 : 28) : Y(y) + 6);
+  }
+}
+
 const FAMILY = [-8, -6, -4, -3, -2, -1, -0.5, 0.5, 1, 2, 3, 4, 6, 8];
 function drawFamily() {
   familyT += 0.012;
@@ -203,6 +229,7 @@ function loop() {
   } else {
     K += (Kt - K) * 0.12; if (Math.abs(Kt - K) < 1e-3) K = Kt;
   }
+  Z += (Zt - Z) * 0.06; if (Math.abs(Zt - Z) < 1e-4) Z = Zt; S = S0 * Z;
   P += (Pt - P) * 0.05; Q += (Qt - Q) * 0.05;
   if (Math.abs(Pt - P) < 1e-3) P = Pt; if (Math.abs(Qt - Q) < 1e-3) Q = Qt;
 
@@ -238,6 +265,7 @@ function loop() {
       }
     }
   }
+  if (probeOn && familyT < 0) drawProbe();
   panel();
   requestAnimationFrame(loop);
 }
@@ -301,6 +329,17 @@ $("slide").onclick = () => {
   flash(`<i>x</i>축 방향으로 ${fmt(tp)}, <i>y</i>축 방향으로 ${fmt(tq)}만큼`);
 };
 
+function zoomTo(z) { Zt = Math.max(0.03, Math.min(4, z)); trails = []; lastSnap = null; }
+$("zin").onclick = () => zoomTo(Zt * 1.6);
+$("zout").onclick = () => zoomTo(Zt / 1.6);
+$("zreset").onclick = () => { zoomTo(1); probeOn = false; $("asym").classList.remove("on"); };
+$("asym").onclick = () => {
+  probeOn = !probeOn; $("asym").classList.toggle("on", probeOn);
+  if (probeOn) { stopAll(); zoomTo(0.15); flash("멀리 갈수록 곡선은 점근선에 한없이 가까워진다"); }
+  else zoomTo(1);
+};
+cv.addEventListener("wheel", e => { e.preventDefault(); zoomTo(Zt * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
+
 function setMode(m) {
   stopAll(); mode = m; trails = [];
   $("t1").classList.toggle("on", m === 1); $("t2").classList.toggle("on", m === 2);
@@ -315,6 +354,8 @@ addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" && e.key.startsWith("Arrow")) return;
   if (e.key === "ArrowRight" || e.key === "ArrowUp") setK(Math.min(8, Math.round(Kt * 2) / 2 + .5));
   if (e.key === "ArrowLeft" || e.key === "ArrowDown") setK(Math.max(-8, Math.round(Kt * 2) / 2 - .5));
+  if (e.key === "+" || e.key === "=") zoomTo(Zt * 1.6);
+  if (e.key === "-") zoomTo(Zt / 1.6);
   if (e.key === " ") { e.preventDefault(); $("sweep").click(); }
   if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 });
