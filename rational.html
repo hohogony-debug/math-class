@@ -95,7 +95,7 @@
   </div>
   <div class="info" id="info"></div>
 </aside>
-<div class="hint">← → 키: k 조절 · 마우스 휠: 확대/축소 · F: 전체 화면 · Space: k 움직이기</div>
+<div class="hint">← → 키: k 조절 · P: 점 찍기 시작/멈춤 · 마우스 휠: 확대/축소 · F: 전체 화면 · Space: k 움직이기</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -234,13 +234,13 @@ function startPlot() {
     pts.push({ x, y, xs: fracStr(p2 * b + 2 * side * a, 2 * b), ys: fracStr(k2 * b + q2 * side * a, 2 * side * a), side });
   }
   pts.sort((u, v) => u.side !== v.side ? v.side - u.side : u.x - v.x);
-  plot = { pts, t: 0, n: 0 };
+  plot = { pts, t: 0, n: 0, paused: false };
   $("tbl").innerHTML = `<table><tr><th>x</th><th>y</th></tr>${pts.map((p, i) => `<tr id="r${i}" class="wait"><td>${p.xs}</td><td>${p.ys}</td></tr>`).join("")}</table>`;
   $("tbl").classList.remove("hide");
-  $("plot").classList.add("on");
+  $("plot").classList.add("on"); $("plot").textContent = "일시정지 ‖";
   flash(mode === 1 ? "x에 값을 넣어 y를 구하고, 점을 찍어 보자" : "먼저 점근선을 긋고, 점을 찍어 보자");
 }
-function endPlot() { plot = null; $("tbl").classList.add("hide"); $("plot").classList.remove("on"); }
+function endPlot() { plot = null; $("tbl").classList.add("hide"); $("plot").classList.remove("on"); $("plot").textContent = "점 찍어 그리기 ▶"; }
 function partialBranch(side, x0, x1) {        // 한 가지(branch)를 x0~x1 까지만
   const pts = [], n = 300;
   for (let i = 0; i <= n; i++) {
@@ -252,7 +252,9 @@ function partialBranch(side, x0, x1) {        // 한 가지(branch)를 x0~x1 까
 }
 function drawPlot() {
   const pl = plot, c = colorOf(K), STEP = 50, lead = mode === 2 ? 70 : 20;
-  pl.t++;
+  pl.STEP = STEP; pl.lead = lead; pl.doneT = lead + pl.pts.length * STEP + 20;
+  if (!pl.paused) pl.t++;
+  if (pl.paused) { ctx.save(); ctx.font = "bold 22px 'Malgun Gothic'"; ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.fillText("‖ 일시정지  (P: 계속 · ←→: 한 점씩)", 24, H - 50); ctx.restore(); }
   const shown = Math.max(0, Math.min(pl.pts.length, Math.floor((pl.t - lead) / STEP) + 1));
   for (let i = 0; i < pl.pts.length; i++) {
     const r = $("r" + i); if (!r) continue;
@@ -413,7 +415,18 @@ $("slide").onclick = () => {
   flash(`<i>x</i>축 방향으로 ${fmt(tp)}, <i>y</i>축 방향으로 ${fmt(tq)}만큼`);
 };
 
-$("plot").onclick = () => plot ? endPlot() : startPlot();
+function togglePause() {
+  if (!plot) return startPlot();
+  if (plot.doneT && plot.t > plot.doneT) return endPlot();      // 다 그린 뒤 누르면 원래 화면으로
+  plot.paused = !plot.paused;
+  $("plot").textContent = plot.paused ? "계속 ▶" : "일시정지 ‖";
+}
+function stepPlot(d) {                                      // 멈춘 상태에서 한 점씩 앞뒤로
+  const n = plot.pts.length, cur = Math.max(0, Math.min(n + 1, Math.floor((plot.t - plot.lead) / plot.STEP) + 1 + (plot.t > plot.doneT ? 1 : 0)));
+  const nx = Math.max(1, Math.min(n + 1, cur + d));
+  plot.t = nx > n ? plot.doneT + 121 : plot.lead + (nx - 1) * plot.STEP + 16;
+}
+$("plot").onclick = togglePause;
 function zoomTo(z) { Zt = Math.max(0.03, Math.min(4, z)); trails = []; lastSnap = null; }
 $("zin").onclick = () => zoomTo(Zt * 1.6);
 $("zout").onclick = () => zoomTo(Zt / 1.6);
@@ -436,6 +449,8 @@ $("t1").onclick = () => { if (plot) endPlot(); setMode(1); };
 $("t2").onclick = () => { if (plot) endPlot(); setMode(2); };
 
 addEventListener("keydown", e => {
+  if (e.code === "KeyP") { e.preventDefault(); if (plot) togglePause(); else startPlot(); return; }
+  if (plot && plot.paused && (e.key === "ArrowRight" || e.key === "ArrowLeft")) { e.preventDefault(); stepPlot(e.key === "ArrowRight" ? 1 : -1); return; }
   if (e.target.tagName === "INPUT" && e.key.startsWith("Arrow")) return;
   if (e.key === "ArrowRight" || e.key === "ArrowUp") setK(Math.min(8, Math.round(Kt * 2) / 2 + .5));
   if (e.key === "ArrowLeft" || e.key === "ArrowDown") setK(Math.max(-8, Math.round(Kt * 2) / 2 - .5));
