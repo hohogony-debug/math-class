@@ -5,24 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>무리함수의 그래프</title>
 <style>
-  :root { --bg:#070b16; --panel:rgba(18,26,48,.72); --edge:rgba(120,150,210,.25); --txt:#e8eefc; --sub:#8c9bbd;
+  :root { --bg:#070b16; --panel:rgba(16,23,44,.93); --edge:rgba(120,150,210,.25); --txt:#e8eefc; --sub:#8c9bbd;
           --pos:#4fe3ff; --neg:#ff6fb5; --asym:#ffb547; --inv:#b7ff6a; }
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--txt); font-family:"Malgun Gothic","맑은 고딕",sans-serif; overflow:hidden; }
   canvas { position:fixed; inset:0; width:100vw; height:100vh; display:block; }
   .top { position:fixed; left:28px; top:20px; display:flex; align-items:center; gap:18px; z-index:2; }
   .top h1 { margin:0; font-size:22px; font-weight:700; letter-spacing:1px; color:#cfd9f2; }
-  .tabs { display:flex; background:var(--panel); border:1px solid var(--edge); border-radius:999px; padding:4px; backdrop-filter:blur(10px); }
+  .tabs { display:flex; background:var(--panel); border:1px solid var(--edge); border-radius:999px; padding:4px; }
   .tabs button { font:inherit; font-size:16px; color:var(--sub); background:none; border:0; padding:7px 18px; border-radius:999px; cursor:pointer; transition:.25s; }
   .tabs button.on { background:#e8eefc; color:#0b1020; font-weight:700; }
   .eq { position:fixed; left:24px; top:72px; z-index:2; font-family:"Cambria Math","Times New Roman",serif; font-size:46px;
-        padding:6px 26px; border-radius:18px; background:rgba(7,11,22,.55); backdrop-filter:blur(6px); white-space:nowrap; text-shadow:0 0 18px rgba(120,200,255,.25); }
+        padding:6px 26px; border-radius:18px; background:rgba(7,11,22,.85); white-space:nowrap; text-shadow:0 0 18px rgba(120,200,255,.25); }
   .eq i { font-style:italic; }
   .rt { white-space:nowrap; }
   .rt .rad { border-top:3px solid currentColor; padding:0 6px; margin-left:1px; display:inline-block; line-height:1.15; }
   .pc { color:var(--asym); }
   aside { position:fixed; right:22px; top:90px; width:330px; z-index:2; background:var(--panel); border:1px solid var(--edge); border-radius:20px;
-          padding:18px 20px; backdrop-filter:blur(14px); box-shadow:0 20px 60px rgba(0,0,0,.45); max-height:calc(100vh - 110px); overflow-y:auto; }
+          padding:18px 20px; box-shadow:0 20px 60px rgba(0,0,0,.45); max-height:calc(100vh - 110px); overflow-y:auto; }
   .ctl { margin-bottom:14px; }
   .ctl .lab { display:flex; justify-content:space-between; align-items:baseline; font-size:15px; color:var(--sub); }
   .ctl .lab b { font-family:"Cambria Math","Times New Roman",serif; font-size:30px; color:var(--txt); font-weight:400; }
@@ -46,8 +46,7 @@
   .big.show { opacity:1; }
   .hide { display:none !important; }
   .hint { position:fixed; left:28px; bottom:18px; font-size:13px; color:#56628a; z-index:2; }
-  .tbl { position:fixed; left:24px; top:150px; z-index:2; background:var(--panel); border:1px solid var(--edge); border-radius:16px; padding:10px 14px;
-         backdrop-filter:blur(10px); font-family:"Cambria Math","Times New Roman",serif; font-size:19px; min-width:190px; }
+  .tbl { position:fixed; left:24px; top:150px; z-index:2; background:var(--panel); border:1px solid var(--edge); border-radius:16px; padding:10px 14px; font-family:"Cambria Math","Times New Roman",serif; font-size:19px; min-width:190px; }
   .tbl table { border-collapse:collapse; width:100%; }
   .tbl th { font-style:italic; font-weight:400; color:var(--sub); border-bottom:1px solid var(--edge); padding:2px 10px; }
   .tbl td { text-align:center; padding:2px 10px; transition:background .3s, color .3s; }
@@ -132,7 +131,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const cv = $("cv"), ctx = cv.getContext("2d");
+const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });
 const POS = "#4fe3ff", NEG = "#ff6fb5", ASY = "#ffb547", INV = "#b7ff6a";
 let MOB = false, RE = 0, BE = 0;
 let W, H, S, S0 = 40, ox, oy, dpr, Z = 1, Zt = 1;
@@ -155,11 +154,11 @@ const fmt = v => { const a = Math.abs(Math.round(v * 2) / 2); return (v < -0.001
 const colorOf = a => a >= 0 ? POS : NEG;
 
 // y = sg·√(a(x−p)) + q  →  t = √(a(x−p)) ≥ 0 로 두면  x = p + t²/a,  y = sg·t + q
-function curvePath(a, p, q, sg) {
+function curvePath(a, p, q, sg, n = 300) {
   if (Math.abs(a) < 1e-6) return [];
   const far = Math.max(Math.abs(xmax() - p), Math.abs(xmin() - p)) + 2;
   const T = Math.max(Math.sqrt(Math.abs(a) * far), Math.max(Math.abs(ymax() - q), Math.abs(ymin() - q)) + 2);
-  const pts = [], n = 300;
+  const pts = [];
   for (let i = 0; i <= n; i++) {
     const t = T * i / n, x = p + t * t / a, y = sg * t + q;
     if (x < xmin() - 5 / Z || x > xmax() + 5 / Z || y < ymin() - 5 / Z || y > ymax() + 5 / Z) { if (pts.length) break; else continue; }
@@ -177,7 +176,24 @@ function stroke(paths, color, width, alpha, glow, dash) {
   ctx.restore();
 }
 
+function glowDot(x, y, r, color, core = color) {   // shadowBlur 없이 빛나는 점
+  const a = ctx.globalAlpha; ctx.fillStyle = color;
+  ctx.globalAlpha = a * .14; ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, 7); ctx.fill();
+  ctx.globalAlpha = a * .3; ctx.beginPath(); ctx.arc(x, y, r * 1.6, 0, 7); ctx.fill();
+  ctx.globalAlpha = a; ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+}
+// 배경(모눈·축·눈금)은 바뀔 때만 따로 그려 두고 매 장면엔 붙이기만 함
+const bg = document.createElement("canvas"), bgx = bg.getContext("2d"); let bgKey = "";
 function drawGrid() {
+  const key = [W, H, dpr, S, ox, oy, P, Q, mode, MOB].join();
+  if (key !== bgKey) {
+    bgKey = key;
+    if (bg.width !== cv.width || bg.height !== cv.height) { bg.width = cv.width; bg.height = cv.height; }
+    bgx.setTransform(dpr, 0, 0, dpr, 0, 0); const c0 = ctx; ctx = bgx; drawGrid0(); ctx = c0;
+  }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg, 0, 0); ctx.restore();
+}
+function drawGrid0() {
   ctx.fillStyle = "#070b16"; ctx.fillRect(0, 0, W, H);
   const g = ctx.createRadialGradient(X(P), Y(Q), 0, X(P), Y(Q), Math.max(W, H) * .7);
   g.addColorStop(0, "rgba(40,60,120,.28)"); g.addColorStop(1, "rgba(7,11,22,0)");
@@ -204,8 +220,7 @@ function drawStart() {     // 시작점과 정의역·치역 경계
     ctx.save(); ctx.setLineDash([10, 8]); ctx.lineWidth = 1.4; ctx.strokeStyle = ASY; ctx.globalAlpha = .55;
     ctx.beginPath(); ctx.moveTo(X(P), 0); ctx.lineTo(X(P), H); ctx.moveTo(0, Y(Q)); ctx.lineTo(W, Y(Q)); ctx.stroke(); ctx.restore();
   }
-  ctx.save(); ctx.shadowColor = ASY; ctx.shadowBlur = 20; ctx.fillStyle = ASY;
-  ctx.beginPath(); ctx.arc(X(P), Y(Q), r, 0, 7); ctx.fill(); ctx.restore();
+  ctx.save(); glowDot(X(P), Y(Q), r, ASY); ctx.restore();
   ctx.fillStyle = ASY; ctx.font = "italic 18px 'Times New Roman'";
   ctx.fillText(`(${fmt(P)}, ${fmt(Q)})`, X(P) + (A > 0 ? -70 : 12), Y(Q) + (SG > 0 ? 26 : -12));
 }
@@ -218,7 +233,7 @@ function curvePoints(a, p, q, sg) {
   return pts;
 }
 function drawInverse() {
-  inv.t = Math.min(1, inv.t + 0.01);
+  inv.t = Math.min(1, inv.t + 0.01 * DT);
   const e = inv.t < .5 ? 4 * inv.t ** 3 : 1 - (-2 * inv.t + 2) ** 3 / 2;
   // y = x
   ctx.save(); ctx.setLineDash([6, 6]); ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 1.4;
@@ -245,7 +260,7 @@ function drawInverse() {
 
 // ---------- 네 방향 모두 ----------
 function drawFamily() {
-  familyT += 0.012;
+  familyT += 0.012 * DT;
   const list = [];
   for (const sg of [1, -1]) for (const a of [-8, -4, -2, -1, -0.5, 0.5, 1, 2, 4, 8]) list.push([a, sg]);
   list.forEach(([a, sg]) => {
@@ -293,13 +308,12 @@ function endPlot() { plot = null; $("tbl").classList.add("hide"); $("stepbar").c
 function drawPlot() {
   const pl = plot, c = colorOf(A), STEP = 55, lead = 30;
   pl.STEP = STEP; pl.lead = lead; pl.doneT = lead + pl.pts.length * STEP + 20;
-  if (!pl.paused) pl.t++;
+  if (!pl.paused) pl.t += DT;
   const shown = Math.max(0, Math.min(pl.pts.length, Math.floor((pl.t - lead) / STEP) + 1));
   for (let i = 0; i < pl.pts.length; i++) { const r = $("r" + i); if (r) r.className = i < shown - 1 ? "" : i === shown - 1 ? "now" : "wait"; }
   pl.pts.slice(0, shown).forEach((p, i) => {
     const age = pl.t - lead - i * STEP, pop = Math.min(1, age / 14), big = i === shown - 1 && age < STEP;
-    ctx.save(); ctx.globalAlpha = pop; ctx.shadowColor = c; ctx.shadowBlur = 22; ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 6 + (1 - pop) * 14, 0, 7); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.globalAlpha = pop; glowDot(X(p.x), Y(p.y), 6 + (1 - pop) * 14, c, "#fff"); ctx.restore();
     if (big) {
       ctx.save(); ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.setLineDash([3, 4]);
       ctx.beginPath(); ctx.moveTo(X(p.x), Y(Q)); ctx.lineTo(X(p.x), Y(p.y)); ctx.lineTo(X(P), Y(p.y)); ctx.stroke(); ctx.restore();
@@ -327,16 +341,19 @@ function stepPlot(d) {
 }
 
 // ---------- 메인 루프 ----------
-function loop() {
-  frame++;
+let lastNow = 0, DT = 1;
+const ez = r => 1 - Math.pow(1 - r, DT);   // 기기 속도와 상관없이 같은 빠르기로 움직이게
+function loop(now) {
+  DT = lastNow ? Math.min(3, Math.max(0.25, (now - lastNow) / 16.67)) : 1; lastNow = now;
+  frame += DT;
   if (sweeping) {
-    sweepT += 0.006;
+    sweepT += 0.006 * DT;
     let v = 7.5 * Math.sin(sweepT);
     if (Math.abs(v) < 0.2) v = v < 0 ? -0.2 : 0.2;
     At = v; A = v;
-  } else { A += (At - A) * 0.12; if (Math.abs(At - A) < 1e-3) A = At; if (Math.abs(A) < 0.05) A = At > 0 ? 0.05 : -0.05; }
-  Z += (Zt - Z) * 0.06; if (Math.abs(Zt - Z) < 1e-4) Z = Zt; S = S0 * Z;
-  P += (Pt - P) * 0.05; Q += (Qt - Q) * 0.05;
+  } else { A += (At - A) * ez(.12); if (Math.abs(At - A) < 1e-3) A = At; if (Math.abs(A) < 0.05) A = At > 0 ? 0.05 : -0.05; }
+  Z += (Zt - Z) * ez(.06); if (Math.abs(Zt - Z) < 1e-4) Z = Zt; S = S0 * Z;
+  P += (Pt - P) * ez(.05); Q += (Qt - Q) * ez(.05);
   if (Math.abs(Pt - P) < 1e-3) P = Pt; if (Math.abs(Qt - Q) < 1e-3) Q = Qt;
 
   drawGrid();
@@ -344,12 +361,12 @@ function loop() {
   else if (plot) { drawStart(); drawPlot(); }
   else {
     if (trailOn) {
-      if (!lastSnap || Math.abs(A - lastSnap[0]) > 0.35 || Math.abs(P - lastSnap[1]) > 0.35 || Math.abs(Q - lastSnap[2]) > 0.35 || SG !== lastSnap[3]) {
+      if (!lastSnap || Math.abs(A - lastSnap[0]) > 0.3 || Math.abs(P - lastSnap[1]) > 0.3 || Math.abs(Q - lastSnap[2]) > 0.3 || SG !== lastSnap[3]) {
         trails.push({ a: A, p: P, q: Q, sg: SG, life: 1 }); lastSnap = [A, P, Q, SG];
       }
     }
-    trails = trails.filter(t => (t.life -= 0.006) > 0);
-    for (const t of trails) stroke(curvePath(t.a, t.p, t.q, t.sg), colorOf(t.a), 1.4, t.life * .35, 0);
+    trails = trails.filter(t => (t.life -= 0.0045 * DT) > 0);
+    for (const t of trails) stroke(curvePath(t.a, t.p, t.q, t.sg, 110), colorOf(t.a), 2.2, t.life * .6, 0);
     if (mode === 2 && (Math.abs(P) > .01 || Math.abs(Q) > .01)) stroke(curvePath(A, 0, 0, SG), "rgba(200,210,235,.9)", 1.4, .45, 0, [6, 7]);
     if (paraOn) {     // 나머지 반쪽 → 옆으로 누운 포물선
       stroke(curvePath(A, P, Q, -SG), "rgba(255,255,255,.8)", 2, .5, 0, [7, 7]);
@@ -358,8 +375,7 @@ function loop() {
       ctx.fillText(`${SG > 0 ? "−" : ""}√ 쪽 (나머지 반)`, X(x) + 8, Y(y));
     }
     const paths = curvePath(A, P, Q, SG), c = colorOf(A);
-    stroke(paths, c, 9, .18, 30);
-    stroke(paths, c, 3.2, 1, 16);
+    stroke(paths, c, 3.2, 1, 24);
     stroke(paths, "#ffffff", 1.1, .7, 0);
     if (inv) drawInverse();
     drawStart();
