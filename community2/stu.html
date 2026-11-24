@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><script>var API_URL = "https://script.google.com/macros/s/AKfycbwNExVx4pgeW-kq0wdoymHdZvBJsS_BiNhg4kdNC36lI_0-f8AmRY-brJhQwNmrM7Uf/exec";</script><meta charset="utf-8">
+<style>
+:root{--ink:#16213a;--mut:#6b7590;--line:#d9dee9;--bg:#f4f6fb;--card:#fff;--acc:#2b4fd8;--ok:#14915a;--bad:#d23b3b;--gold:#c28a12}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px}
+header b{font-size:18px}header .g{margin-left:auto;font-size:14px;opacity:.85}
+main{padding:14px 16px 40px;max-width:1100px;margin:0 auto}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.big{font-size:22px;font-weight:700;text-align:center;padding:30px 10px}
+.mut{color:var(--mut)}
+.timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:20px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button{font:inherit;border:0;border-radius:10px;padding:12px 18px;font-weight:700;background:var(--acc);color:#fff;cursor:pointer}
+button.gray{background:#e6e9f2;color:var(--ink)}button:disabled{opacity:.4}
+.wrap{position:relative;width:100%;touch-action:manipulation;user-select:none}
+.wrap img{width:100%;display:block;border-radius:8px}
+.mk{position:absolute;width:7%;aspect-ratio:1;border:4px solid #ff2d55;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 2px #fff}
+.mk.ok{border-color:#16c172}.mk.no{border-color:#ff2d55;border-style:dashed}
+.deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px}
+.cd{border-radius:10px;border:3px solid transparent;padding:6px 4px;text-align:center;color:#fff;cursor:pointer;line-height:1.1;position:relative}
+.cd .L{font-size:24px;font-weight:800}.cd .n{font-size:15px;font-weight:700}.cd .s{font-size:22px}
+.cd.sel{border-color:var(--ink);outline:3px solid #ffd43b;transform:scale(1.04)}
+.c빨강{background:#d9363e}.c파랑{background:#2563c9}.c초록{background:#1f8a4c}.c노랑{background:#e0a800;color:#222}
+.q li{margin:6px 0;font-size:17px;line-height:1.5}
+.pick{display:flex;gap:6px;min-height:52px;align-items:center}
+.pick .cd{width:58px;cursor:default}
+svg.lp{width:100%;max-width:720px;display:block;margin:0 auto;touch-action:manipulation;user-select:none}
+.msg{padding:10px 14px;border-radius:10px;font-weight:700;margin:8px 0}
+.msg.ok{background:#e3f7ec;color:var(--ok)}.msg.bad{background:#fde8e8;color:var(--bad)}.msg.info{background:#e8eefc;color:var(--acc)}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:20}
+.modal .in{background:#fff;border-radius:14px;padding:20px;max-width:420px;width:90%}
+</style></head>
+<body>
+<header><b id="tn">모둠</b><span class="g" id="gn">대기</span></header>
+<main id="app"><div class="big mut">연결 중…</div></main>
+<div class="modal" id="cf"><div class="in"><div id="cfT" style="font-size:18px;font-weight:700;margin-bottom:14px"></div>
+<div class="row" style="justify-content:flex-end"><button class="gray" id="cfN">취소</button><button id="cfY">제출</button></div></div></div>
+<script>
+var T = (parseInt(new URLSearchParams(location.search).get('t'), 10) - 1), K = new URLSearchParams(location.search).get('k');
+var S = null, off = 0, have = '', P = {}, busy = false, view = '', curId = '';
+var mem = { marks: [], img: null, r: -1 }, code = { picks: [], q: -1, deck: null, text: null }, loop = { E: {}, w: '', P: null, dirty: false, msg: '' };
+var GN = { mem: '① 기억의 방 — 달라진 그림 찾기', code: '② 비밀 코드', loop: '③ 울타리 치기' };
+function $(i) { return document.getElementById(i); }
+function run(fn, args) {
+  if (window.API_URL) return fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
+    .then(function (r) { return r.json(); }).then(function (o) { if (o.err) throw new Error(o.err); return o.ok; });
+  return new Promise(function (ok, no) { var r = google.script.run.withSuccessHandler(ok).withFailureHandler(no); r[fn].apply(r, args); });
+}
+function nowS() { return Date.now() + off; }
+function left(o) { return Math.max(0, Math.ceil((o.t0 + o.dur * 1000 - nowS()) / 1000)); }
+function fmt(s) { return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); }
+function ask(t) { return new Promise(function (ok) { $('cfT').textContent = t; $('cf').style.display = 'flex'; $('cfY').onclick = function () { $('cf').style.display = 'none'; ok(true); }; $('cfN').onclick = function () { $('cf').style.display = 'none'; ok(false); }; }); }
+
+function poll() {
+  if (busy) return;
+  busy = true;
+  run('stuState', [T, K, have]).then(function (s) {
+    busy = false; off = s.now - Date.now(); S = s;
+    if (s.id) { have = s.id; if (s.mem && s.mem.img) mem.img = s.mem.img; if (s.code && s.code.text) { code.text = s.code.text; code.deck = s.code.deck; } if (s.loop && s.loop.P) loop.P = s.loop.P; }
+    render();
+  }).catch(function (e) { busy = false; if (String(e).indexOf('QR') >= 0) $('app').innerHTML = '<div class="big">' + e.message + '</div>'; });
+}
+setInterval(poll, 2500); poll();
+setInterval(tick, 500);
+function tick() {
+  document.querySelectorAll('[data-t0]').forEach(function (el) {
+    var o = { t0: +el.dataset.t0, dur: +el.dataset.dur }; el.textContent = fmt(left(o));
+  });
+  document.querySelectorAll('[data-lock]').forEach(function (el) {
+    var s = Math.ceil((+el.dataset.lock - nowS()) / 1000);
+    el.textContent = s > 0 ? '🔒 ' + s + '초 잠김' : ''; el.style.display = s > 0 ? '' : 'none';
+  });
+}
+
+function render() {
+  var s = S; $('tn').textContent = s.names[T]; $('gn').textContent = s.g ? GN[s.g] : '대기';
+  var key = s.g + '|' + JSON.stringify(s.g === 'mem' ? [s.mem.r, s.mem.ph, s.mem.sent, s.mem.inn, !!mem.img] : s.g === 'code' ? [s.code.q, s.code.ph, !!s.code.mine, s.code.lock, s.code.inn, !!code.text] : s.g === 'loop' ? [s.loop.w, s.loop.ph, !!s.loop.mine, s.loop.lock, !!loop.P] : 0);
+  if (key === view) return;   // 바뀐 것 없으면 그대로 (그리던 중 지워지지 않게)
+  view = key;
+  if (!s.g) return $('app').innerHTML = '<div class="box big">칠판을 보세요.<div class="mut" style="font-size:16px;margin-top:10px">게임이 시작되면 이 화면이 바뀝니다.</div></div>';
+  if (s.g === 'mem') return rMem(s.mem);
+  if (s.g === 'code') return rCode(s.code);
+  if (s.g === 'loop') return rLoop(s.loop);
+}
+
+// ---------- ① 기억의 방 ----------
+function rMem(m) {
+  var A = $('app'), rn = (m.r + 1) + '라운드';
+  if (mem.r !== m.r) mem = { marks: [], img: S.mem.img || null, r: m.r };
+  if (!m.inn) return A.innerHTML = '<div class="box big">' + rn + '<br><span class="mut" style="font-size:16px">이번 판은 우리 모둠 차례가 아닙니다. 칠판을 보세요.</span></div>';
+  if (m.ph === 'idle') return A.innerHTML = '<div class="box big">' + rn + ' 준비<br><span class="mut" style="font-size:16px">곧 칠판에 원본 그림이 나옵니다. 모둠끼리 누가 어디를 외울지 나누세요.</span></div>';
+  if (m.ph === 'show') return A.innerHTML = '<div class="box big">👀 칠판의 그림을 외우세요<div class="timer" style="font-size:44px;margin-top:10px" data-t0="' + m.t0 + '" data-dur="' + m.dur + '"></div></div>';
+  if (m.ph === 'open' && !m.sent) {
+    if (!mem.img) { have = ''; return A.innerHTML = '<div class="box big">그림 받는 중…</div>'; }
+    A.innerHTML = '<div class="box"><div class="row"><b>' + rn + ' · 달라진 곳을 눌러 표시하세요</b><span class="mut">(최대 ' + (m.n + 2) + '개, 다시 누르면 지워짐)</span><span style="margin-left:auto" class="timer" data-t0="' + m.t0 + '" data-dur="' + m.dur + '"></span></div>' +
+      '<div class="mut" style="margin:6px 0">맞힌 곳 +1점, 헛짚은 곳 −1점 · <b>' + m.n + '곳</b>이 바뀌었습니다 · 모둠에서 한 사람만 제출</div>' +
+      '<div class="wrap" id="mw"><img id="mi" src="' + mem.img + '"></div>' +
+      '<div class="row" style="margin-top:10px"><span id="mc" class="mut"></span><button style="margin-left:auto" id="ms">제출</button></div></div>';
+    drawMarks(); $('mi').onclick = memTap; $('ms').onclick = memSend; return;
+  }
+  if (m.ph === 'open') return A.innerHTML = '<div class="box big">✅ 우리 모둠 제출 완료<br><span class="mut" style="font-size:16px">채점은 칠판에서 공개됩니다.</span></div>';
+  if (m.ph === 'done') {
+    var r = m.res;
+    A.innerHTML = '<div class="box"><div class="big" style="padding:10px">' + rn + ' 결과: ' + (r ? '맞힘 ' + r.hit + ' · 헛짚음 ' + r.wrong + ' → <span style="color:var(--acc)">' + r.sc + '점</span>' : '제출 안 함 → 0점') + '</div>' +
+      (mem.img && r ? '<div class="wrap" id="mw"><img src="' + mem.img + '"></div><div class="mut" style="margin-top:6px">초록 = 맞힘, 빨간 점선 = 헛짚음. 정답은 칠판에서 확인하세요.</div>' : '') + '</div>';
+    if (r && mem.img) r.m.forEach(function (p) { addMk(p[0], p[1], p[2] ? 'ok' : 'no'); });
+  }
+}
+function addMk(x, y, cls) { var d = document.createElement('div'); d.className = 'mk ' + (cls || ''); d.style.left = x * 100 + '%'; d.style.top = y * 100 + '%'; $('mw').appendChild(d); }
+function drawMarks() { document.querySelectorAll('#mw .mk').forEach(function (e) { e.remove(); }); mem.marks.forEach(function (p) { addMk(p[0], p[1]); }); $('mc').textContent = '표시 ' + mem.marks.length + ' / ' + (S.mem.n + 2); }
+function memTap(ev) {
+  var b = ev.target.getBoundingClientRect(), x = (ev.clientX - b.left) / b.width, y = (ev.clientY - b.top) / b.height;
+  for (var i = 0; i < mem.marks.length; i++) { var dx = mem.marks[i][0] - x, dy = (mem.marks[i][1] - y) * S.mem.ar; if (Math.sqrt(dx * dx + dy * dy) < .04) { mem.marks.splice(i, 1); return drawMarks(); } }
+  if (mem.marks.length >= S.mem.n + 2) return;
+  mem.marks.push([x, y]); drawMarks();
+}
+function memSend() {
+  ask('표시 ' + mem.marks.length + '개로 제출할까요? 제출하면 고칠 수 없습니다.').then(function (y) {
+    if (!y) return;
+    $('ms').disabled = true;
+    run('stuMem', [T, K, S.mem.r, mem.marks]).then(function () { view = ''; poll(); }).catch(function (e) { alertBox(e.message); $('ms').disabled = false; });
+  });
+}
+function alertBox(t) { var d = document.createElement('div'); d.className = 'msg bad'; d.textContent = t; $('app').prepend(d); setTimeout(function () { d.remove(); }, 4000); }
+
+// ---------- ② 비밀 코드 ----------
+function cardHtml(c, extra) { return '<div class="cd c' + c.c + ' ' + (extra || '') + '" data-n="' + c.n + '"><div class="L">' + c.L + '</div><div class="n">' + c.n + '</div><div class="s">' + c.s + '</div></div>'; }
+function rCode(c) {
+  var A = $('app');
+  if (code.q !== c.q) code = { picks: [], q: c.q, deck: code.deck, text: c.text || null };
+  if (c.text) code.text = c.text;
+  var qn = c.q < c.nQ - 1 ? (c.q + 1) + '번 문제' : '연장 문제';
+  if (c.ph === 'idle' || !code.text) return A.innerHTML = '<div class="box big">비밀 코드<br><span class="mut" style="font-size:16px">곧 문제가 나옵니다. 칠판의 카드 26장을 미리 살펴보세요.</span></div>' + (code.deck ? '<div class="box"><div class="deck">' + code.deck.map(function (x) { return cardHtml(x); }).join('') + '</div></div>' : '');
+  var head = '<div class="box"><div class="row"><b>' + qn + '</b><span class="mut">조건을 모두 만족하는 카드 4장을 찾으세요</span>' + (c.ph === 'open' ? '<span class="timer" style="margin-left:auto" data-t0="' + c.t0 + '" data-dur="' + c.dur + '"></span>' : '') + '</div>' +
+    '<ol class="q">' + code.text.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ol></div>';
+  var st = '';
+  if (!c.inn) st = '<div class="msg info">이번 문제는 우리 모둠 차례가 아닙니다.</div>';
+  else if (c.mine) st = '<div class="msg ok">🎉 정답! ' + c.mine.rank + '번째로 맞혔습니다 (+' + [4, 3, 2, 1][c.mine.rank - 1] + '점)</div>';
+  else if (c.ph === 'done') st = '<div class="msg bad">마감되었습니다.</div>';
+  var ans = c.ph === 'done' && c.ans ? '<div class="box"><b>정답</b><div class="pick">' + c.ans.map(function (n) { return cardHtml(code.deck[n - 1]); }).join('') + '</div></div>' : '';
+  var canPick = c.inn && !c.mine && c.ph === 'open';
+  A.innerHTML = head + st + ans + (canPick ? '<div class="box"><div class="row"><b>고른 카드</b><div class="pick" id="pk"></div><span data-lock="' + (c.lock || 0) + '" class="msg bad" style="display:none"></span><button id="cs" style="margin-left:auto">제출</button></div><div class="mut" style="margin-top:6px">틀리면 40초 동안 잠깁니다 · 먼저 맞힌 순서대로 4·3·2·1점</div></div>' : '') +
+    '<div class="box"><div class="deck" id="dk">' + code.deck.map(function (x) { return cardHtml(x, code.picks.indexOf(x.n) >= 0 ? 'sel' : ''); }).join('') + '</div></div>';
+  if (canPick) {
+    drawPicks();
+    $('dk').onclick = function (ev) { var d = ev.target.closest('.cd'); if (!d) return; var n = +d.dataset.n, i = code.picks.indexOf(n); if (i >= 0) code.picks.splice(i, 1); else if (code.picks.length < 4) code.picks.push(n); d.classList.toggle('sel', code.picks.indexOf(n) >= 0); drawPicks(); };
+    $('cs').onclick = codeSend;
+  }
+  tick();
+}
+function drawPicks() { var p = code.picks.slice().sort(function (a, b) { return a - b; }); $('pk').innerHTML = p.map(function (n) { return cardHtml(code.deck[n - 1]); }).join('') || '<span class="mut">카드를 4장 누르세요</span>'; $('cs').disabled = p.length !== 4; }
+function codeSend() {
+  $('cs').disabled = true;
+  run('stuCode', [T, K, S.code.q, code.picks]).then(function (r) {
+    if (r.ok) { view = ''; poll(); }
+    else { alertBox('틀렸습니다! 40초 동안 잠깁니다.'); view = ''; poll(); }
+  }).catch(function (e) { alertBox(e.message.indexOf('잠김') >= 0 ? '아직 잠겨 있습니다.' : e.message); $('cs').disabled = false; });
+}
+
+// ---------- ③ 울타리 치기 ----------
+// 변 키: "h,r,c" (r행 위쪽 가로선) / "v,r,c" (c열 왼쪽 세로선). 값 1=선, 2=X
+var CELL = 60, PAD = 22;
+function rLoop(l) {
+  var A = $('app'), name = l.w === 'prac' ? '연습판 (점수 없음)' : '본게임';
+  if (loop.w !== l.w) { loop = { E: {}, w: l.w, P: l.P || null, dirty: false, undo: [] }; restore(); }
+  if (l.P) loop.P = l.P;
+  if (l.ph === 'idle' || !loop.P) return A.innerHTML = '<div class="box big">울타리 치기 · ' + name + '<br><span class="mut" style="font-size:16px">곧 판이 열립니다.</span></div>';
+  var st = l.mine ? '<div class="msg ok">🎉 완성! ' + (l.w === 'main' ? l.mine.rank + '번째로 완성했습니다.' : '연습 성공!') + '</div>' : l.ph === 'done' ? '<div class="msg info">마감 — 정답이 표시됩니다.</div>' : '';
+  A.innerHTML = '<div class="box"><div class="row"><b>' + name + '</b>' + (l.ph === 'open' ? '<span class="timer" style="margin-left:auto" data-t0="' + l.t0 + '" data-dur="' + l.dur + '"></span>' : '') + '</div>' +
+    '<div class="mut" style="margin:6px 0">점과 점 사이를 눌러 선 긋기 → 한 번 더 누르면 ✕(선 없음 표시) → 한 번 더 누르면 지움. 숫자 = 그 칸을 둘러싼 선의 개수. 하나의 고리로 닫으세요(갈라지거나 교차 금지).</div>' + st +
+    '<div id="lpw"></div>' +
+    (l.ph === 'open' && !l.mine ? '<div class="row" style="margin-top:10px"><button class="gray" id="lu">↶ 되돌리기</button><button class="gray" id="lc">모두 지우기</button><button class="gray" id="ll">우리 모둠 최근 판 불러오기</button><span data-lock="' + (l.lock || 0) + '" class="msg bad" style="display:none"></span><button id="ls" style="margin-left:auto">제출</button></div><div class="mut" style="margin-top:6px">틀리면 ' + (l.w === 'prac' ? '10초' : '1분') + ' 잠김 · 판은 15초마다 자동 저장되어 같은 모둠 태블릿에서 불러올 수 있습니다.</div>' : '') + '</div>';
+  drawLoop(l.ph === 'done' ? l.sol : null);
+  if (l.ph === 'open' && !l.mine) {
+    $('lpw').querySelector('svg').onclick = loopTap;
+    $('lu').onclick = function () { var u = loop.undo && loop.undo.pop(); if (u) { if (u[1]) loop.E[u[0]] = u[1]; else delete loop.E[u[0]]; loop.dirty = true; drawLoop(); } };
+    $('lc').onclick = function () { ask('판을 모두 지울까요?').then(function (y) { if (y) { loop.E = {}; loop.dirty = true; drawLoop(); } }); };
+    $('ll').onclick = function () { run('stuLoopLoad', [T, K, loop.w]).then(function (x) { if (!x) return alertBox('저장된 판이 없습니다'); loop.E = {}; x.E.forEach(function (e) { loop.E[e.join(',')] = 1; }); drawLoop(); }); };
+    $('ls').onclick = loopSend;
+  }
+  tick();
+}
+function restore() { try { var x = JSON.parse(localStorage.getItem('lp2_' + T + '_' + loop.w) || 'null'); if (x) loop.E = x; } catch (e) {} }
+function keep() { try { localStorage.setItem('lp2_' + T + '_' + loop.w, JSON.stringify(loop.E)); } catch (e) {} }
+function drawLoop(sol) {
+  var P = loop.P, W = P.C * CELL + PAD * 2, H = P.R * CELL + PAD * 2, h = [];
+  var cl = {}; P.clues.forEach(function (c) { cl[c[0] + ',' + c[1]] = c[2]; });
+  var on = {}; if (sol) sol.forEach(function (e) { on[e.join(',')] = 1; });
+  for (var r = 0; r < P.R; r++) for (var c = 0; c < P.C; c++) if (cl[r + ',' + c] !== undefined)
+    h.push('<text x="' + (PAD + c * CELL + CELL / 2) + '" y="' + (PAD + r * CELL + CELL / 2 + 11) + '" text-anchor="middle" font-size="32" font-weight="700" fill="#16213a">' + cl[r + ',' + c] + '</text>');
+  function seg(k, v, isSol) {
+    var a = k.split(','), t = a[0], r = +a[1], c = +a[2], x1 = PAD + c * CELL, y1 = PAD + r * CELL, x2 = t === 'h' ? x1 + CELL : x1, y2 = t === 'h' ? y1 : y1 + CELL;
+    if (v === 1) return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + (isSol ? '#14915a' : '#2b4fd8') + '" stroke-width="8" stroke-linecap="round"/>';
+    var mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    return '<g stroke="#d23b3b" stroke-width="3"><line x1="' + (mx - 6) + '" y1="' + (my - 6) + '" x2="' + (mx + 6) + '" y2="' + (my + 6) + '"/><line x1="' + (mx + 6) + '" y1="' + (my - 6) + '" x2="' + (mx - 6) + '" y2="' + (my + 6) + '"/></g>';
+  }
+  if (sol) Object.keys(on).forEach(function (k) { h.push(seg(k, 1, true)); });
+  else Object.keys(loop.E).forEach(function (k) { h.push(seg(k, loop.E[k])); });
+  for (var i = 0; i <= P.R; i++) for (var j = 0; j <= P.C; j++) h.push('<circle cx="' + (PAD + j * CELL) + '" cy="' + (PAD + i * CELL) + '" r="4.5" fill="#16213a"/>');
+  $('lpw').innerHTML = '<svg class="lp" viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" fill="#fff" rx="10"/>' + h.join('') + '</svg>';
+  if (!sol && S.loop.ph === 'open' && !S.loop.mine) $('lpw').querySelector('svg').onclick = loopTap;
+}
+function loopTap(ev) {
+  var svg = ev.currentTarget, b = svg.getBoundingClientRect(), P = loop.P, W = P.C * CELL + PAD * 2;
+  var x = (ev.clientX - b.left) / b.width * W - PAD, y = (ev.clientY - b.top) / b.height * (P.R * CELL + PAD * 2) - PAD;
+  var best = null, bd = 1e9;
+  for (var r = 0; r <= P.R; r++) for (var c = 0; c < P.C; c++) { var d = Math.hypot(x - (c + .5) * CELL, y - r * CELL); if (d < bd) { bd = d; best = 'h,' + r + ',' + c; } }
+  for (r = 0; r < P.R; r++) for (c = 0; c <= P.C; c++) { d = Math.hypot(x - c * CELL, y - (r + .5) * CELL); if (d < bd) { bd = d; best = 'v,' + r + ',' + c; } }
+  if (bd > CELL * .45) return;
+  loop.undo = loop.undo || []; loop.undo.push([best, loop.E[best]]); if (loop.undo.length > 200) loop.undo.shift();
+  var v = loop.E[best]; if (!v) loop.E[best] = 1; else if (v === 1) loop.E[best] = 2; else delete loop.E[best];
+  loop.dirty = true; keep(); drawLoop();
+}
+function lines() { return Object.keys(loop.E).filter(function (k) { return loop.E[k] === 1; }).map(function (k) { var a = k.split(','); return [a[0], +a[1], +a[2]]; }); }
+setInterval(function () { if (S && S.g === 'loop' && S.loop.ph === 'open' && loop.dirty && !S.loop.mine) { loop.dirty = false; run('stuLoopSave', [T, K, loop.w, lines()]).catch(function () { loop.dirty = true; }); } }, 15000);
+function loopSend() {
+  ask('이 판으로 제출할까요? 틀리면 잠깁니다.').then(function (y) {
+    if (!y) return;
+    $('ls').disabled = true;
+    run('stuLoop', [T, K, loop.w, lines()]).then(function (r) {
+      if (!r.ok) alertBox('아직 정답이 아닙니다. 잠시 잠깁니다.');
+      view = ''; poll();
+    }).catch(function (e) { alertBox(e.message.indexOf('잠김') >= 0 ? '아직 잠겨 있습니다.' : e.message); $('ls').disabled = false; });
+  });
+}
+</script>
+</body></html>
