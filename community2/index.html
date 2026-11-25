@@ -79,7 +79,16 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
 /* 진행자 사진이 있을 때: 사진을 화면 가득, 글은 왼쪽, 자막은 아래 */
 .host.cine{background:#000}
 .host .bg{display:none}
-.host.cine .bg{display:block;position:absolute;inset:0;background-size:cover;background-position:center 30%;transform:scale(1.04);animation:hzoom 40s linear infinite alternate}
+.host.cine .bg{display:block;position:absolute;inset:0;background-size:cover;background-position:center 30%;transform:scale(1.04);animation:hzoom 40s linear infinite alternate,hbreath 5s ease-in-out infinite}
+/* 2026-11-25: 진행자가 숨 쉬듯(늘) + 말할 때 고개를 살짝 움직이는 느낌 */
+.host.cine.talk .bg{animation:hzoom 40s linear infinite alternate,hbreath 5s ease-in-out infinite,hsway 3.4s ease-in-out infinite,hlit 1.7s ease-in-out infinite}
+@keyframes hbreath{0%,100%{scale:1}50%{scale:1.014}}
+@keyframes hsway{0%,100%{translate:0 0;rotate:0deg}22%{translate:-.35% -.45%;rotate:-.3deg}48%{translate:.1% -.15%;rotate:.08deg}74%{translate:.4% -.4%;rotate:.3deg}}
+@keyframes hlit{0%,100%{filter:brightness(1)}50%{filter:brightness(1.07)}}
+.host.ready{cursor:pointer}
+.host.ready .ctl,.host.ready .pg{display:none}
+.host.ready .sub{animation:hblink 1.6s ease-in-out infinite}
+@keyframes hblink{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes hzoom{from{transform:scale(1.04)}to{transform:scale(1.12)}}
 .host.cine .shade{position:absolute;inset:0;background:linear-gradient(90deg,#000e 0%,#000b 26%,#0000 52%),linear-gradient(0deg,#000f 0%,#000a 20%,#0000 42%)}
 .host.cine .fig{display:none}
@@ -89,6 +98,14 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
 .host.cine .wave{position:fixed;left:50%;bottom:3vh;transform:translateX(-50%);margin:0}
 .host.cine.talk .shade{animation:hred 2.4s ease-in-out infinite}
 @keyframes hred{0%,100%{box-shadow:inset 0 0 0 0 #0000}50%{box-shadow:inset 0 0 18vh 0 #7a0a1433}}
+
+.host.cine .big{background:linear-gradient(180deg,#ffffff 0%,#e4e4e8 42%,#9a9aa3 52%,#f1f1f4 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 3px 10px #000)}
+.host.cine .big b{background:linear-gradient(180deg,#fff4c8 0%,#e6bb5e 44%,#9c6b1e 54%,#f3d27e 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.host.cine .big::after{content:'';display:block;width:70%;height:2px;margin-top:2.6vh;background:linear-gradient(90deg,#0000,#e6bb5e 30%,#fff2c0 50%,#e6bb5e 70%,#0000)}
+.host.cine .big:empty::after{display:none}
+.host.card .side,.host.card .sub{visibility:hidden}
+.host.card .shade{background:none}
+.host.card .bg{background-size:contain;background-repeat:no-repeat;background-color:#000}
 /* 작은 진행자: 문제를 읽을 때 칠판 오른쪽 아래 */
 .mini{position:fixed;right:18px;bottom:18px;z-index:45;display:none;align-items:flex-end;gap:14px;max-width:62vw;pointer-events:none}
 .mini.on{display:flex}
@@ -158,7 +175,7 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
  <span>높낮이 <input id="vPitch" type="range" min="0.5" max="1.3" step="0.05" style="width:140px;vertical-align:middle;padding:0"></span>
  <span>빠르기 <input id="vRate" type="range" min="0.7" max="1.2" step="0.05" style="width:140px;vertical-align:middle;padding:0"></span>
  <button class="b g" id="vTest">🔊 들어 보기</button></div>
- <div class="row" style="margin-top:12px"><label style="font-size:18px"><input type="checkbox" id="vReadQ"> 비밀 코드 문제를 열면 조건을 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vReadRev"> 최종 순위 발표 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vDrone"> 진행자 화면 배경음</label></div></div>
+ <div class="row" style="margin-top:12px"><label style="font-size:18px"><input type="checkbox" id="vReadQ"> 비밀 코드 문제를 열면 조건을 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vReadRev"> 최종 순위 발표 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vRec"> 진행자 녹음 목소리 (끄면 컴퓨터 목소리)</label></div></div>
  <div class="pan"><h2>처음부터</h2><p class="mut">모든 게임 기록을 지웁니다(모둠 이름은 남김). 수업 시작 전 연습해 본 뒤에 누르세요.</p><button class="b r" id="resetAll">전부 초기화</button></div>
 </section>
 </main>
@@ -204,7 +221,7 @@ if (PIN) start();
 function act(a, x) { return run('brdAct', [PIN, a, x]).then(function (s) { S = s; last = ''; draw(); return s; }).catch(function (e) { modal('오류', esc(e.message)); }); }
 function poll() {
   if (!D || busy) return; busy = true;
-  run('brdStatus', [PIN]).then(function (r) { busy = false; off = r.now - Date.now(); S = r.st; S.prog = r.prog; $('conn').className = 'ok'; draw(); auto(); })
+  run('brdStatus', [PIN]).then(function (r) { busy = false; off = r.now - Date.now(); S = r.st; S.prog = r.prog; $('conn').className = 'ok'; draw(); auto(); splash(); })
     .catch(function () { busy = false; $('conn').className = ''; $('conn').textContent = '⚠ 연결 끊김'; });
 }
 setInterval(poll, 2000);
@@ -416,9 +433,47 @@ $('nameSave').onclick = function () { act('names', [].map.call(document.querySel
 $('resetAll').onclick = function () { modal('정말 모든 기록을 지울까요?', '<p>되돌릴 수 없습니다.</p>').then(function (y) { if (y) act('reset'); }); };
 
 // ---------- 검은 가면 진행자 (규칙·문제를 말로 설명) ----------
-var HV = { voice: '', pitch: 0.7, rate: 0.9, readQ: true, readRev: true };
+var HV = { voice: '', pitch: 0.7, rate: 0.9, readQ: true, readRev: true, rec: true };
 try { var hv0 = JSON.parse(localStorage.getItem('cm2voice2') || '{}'); for (var k0 in hv0) HV[k0] = hv0[k0]; } catch (e) {}
 function hvSave() { try { localStorage.setItem('cm2voice2', JSON.stringify(HV)); } catch (e) {} }
+// 진행자 녹음 목소리 (2026-11-25 AI Studio 'Algenib' 목소리로 녹음 → voicefx 쇠긁힘 살짝 + 1.15배 빠르게, voice/*.mp3)
+// 대사 글자가 이 목록과 똑같을 때만 녹음을 틀고, 대사를 고치거나 파일이 없으면 그 줄은 컴퓨터 목소리로 읽음.
+var VOICE = {
+"반갑습니다. 커뮤니티 파트 투, 최종전에 오신 것을 환영합니다.": "voice/intro_00.mp3",
+"지금부터, 광양제철고의 두뇌를 시험하겠습니다.": "voice/intro_01.mp3",
+"오늘 여러분은 세 개의 게임을 치르게 됩니다. 기억의 방. 비밀 코드. 그리고, 울타리 치기.": "voice/intro_02.mp3",
+"각 게임의 순위에 따라 1위는 4점, 2위는 3점, 3위는 2점, 4위는 1점을 얻습니다.": "voice/intro_03.mp3",
+"세 게임의 점수를 모두 더해 최종 순위를 정합니다. 합계가 같다면, 마지막 게임 울타리 치기에서 순위가 높은 모둠이 앞섭니다.": "voice/intro_04.mp3",
+"최종 1위 모둠에게는 심화반 누적 점수 20점이 주어집니다. 2위는 15점, 3위는 10점, 4위는 5점입니다.": "voice/intro_05.mp3",
+"모든 답은 모둠의 태블릿으로 제출합니다. 한 번 제출한 답은 되돌릴 수 없습니다. 신중하게 결정하십시오.": "voice/intro_06.mp3",
+"그럼, 최종전을 시작하겠습니다. 행운을 빕니다.": "voice/intro_07.mp3",
+"첫 번째 게임, 기억의 방입니다.": "voice/mem_00.mp3",
+"지금부터 칠판에 그림 한 장이 60초 동안 공개됩니다. 그 그림을, 최대한 자세히 기억하십시오.": "voice/mem_01.mp3",
+"60초가 지나면 그림은 사라집니다. 그리고 각 모둠의 태블릿에, 몇 군데가 바뀐 그림이 나타납니다.": "voice/mem_02.mp3",
+"100초 안에, 바뀌었다고 생각하는 곳을 눌러 표시하고 제출하십시오. 몇 군데가 바뀌었는지는 태블릿에 알려 드립니다.": "voice/mem_03.mp3",
+"바뀐 곳을 맞히면 1점을 얻습니다. 하지만 바뀌지 않은 곳을 표시하면, 1점을 잃습니다.": "voice/mem_04.mp3",
+"게임은 세 라운드로 진행됩니다. 바뀐 곳은 라운드마다 다섯 곳, 일곱 곳, 여덟 곳으로 늘어납니다.": "voice/mem_05.mp3",
+"모든 라운드의 점수를 더해 순위를 정합니다. 합계가 같다면, 마지막 라운드 점수가 높은 모둠이 앞섭니다.": "voice/mem_06.mp3",
+"기억은, 생각보다 쉽게 무너집니다. 그럼, 기억의 방을 시작하겠습니다.": "voice/mem_07.mp3",
+"두 번째 게임, 비밀 코드입니다.": "voice/code_00.mp3",
+"화면에는 스물여섯 장의 카드가 있습니다. 카드마다 알파벳 하나, 숫자 하나, 색깔 하나, 그리고 도형 하나가 그려져 있습니다.": "voice/code_01.mp3",
+"문제마다 몇 개의 조건이 주어집니다. 그 조건을 모두 만족하는 카드 네 장을 찾으십시오. 정답은, 단 하나뿐입니다.": "voice/code_02.mp3",
+"네 장을 골라 태블릿으로 제출하십시오. 가장 먼저 맞힌 모둠은 4점, 두 번째는 3점, 세 번째는 2점, 네 번째는 1점을 얻습니다.": "voice/code_03.mp3",
+"틀린 답을 제출하면, 그 모둠은 40초 동안 제출할 수 없습니다.": "voice/code_04.mp3",
+"문제는 모두 다섯 개, 문제마다 제한 시간은 4분입니다. 합계가 같은 모둠이 있다면, 연장 문제로 승부를 가립니다.": "voice/code_05.mp3",
+"빠른 모둠이 이기는 게임입니다. 하지만, 틀리는 순간 멈추게 됩니다. 그럼, 비밀 코드를 시작하겠습니다.": "voice/code_06.mp3",
+"마지막 게임, 울타리 치기입니다.": "voice/loop_00.mp3",
+"판 위의 점과 점을 선으로 이어, 끊어지지 않는 하나의 고리를 만드십시오.": "voice/loop_01.mp3",
+"칸 안의 숫자는, 그 칸의 네 변 가운데 고리가 지나가는 변의 개수입니다. 숫자가 없는 칸은, 몇 개가 지나가도 상관없습니다.": "voice/loop_02.mp3",
+"고리는 중간에 갈라지거나 서로 엇갈릴 수 없습니다. 반드시 하나로 이어진, 닫힌 고리여야 합니다.": "voice/loop_03.mp3",
+"먼저 5 곱하기 5 연습판으로, 5분 동안 규칙을 익힙니다. 연습판은 점수에 들어가지 않습니다.": "voice/loop_04.mp3",
+"본게임은 10 곱하기 10 판입니다. 제한 시간은 20분입니다.": "voice/loop_05.mp3",
+"완성한 판을 제출해 정답이면, 완성한 순서대로 순위가 정해집니다. 틀리면 1분 동안 제출할 수 없습니다.": "voice/loop_06.mp3",
+"시간 안에 완성하지 못한 모둠은, 진행률이 높은 순서로 순위를 정합니다.": "voice/loop_07.mp3",
+"이 게임의 순위는, 최종 점수가 같을 때 승부를 가르는 기준이기도 합니다.": "voice/loop_08.mp3",
+"마지막 게임입니다. 그럼, 울타리 치기를 시작하겠습니다.": "voice/loop_09.mp3"
+};
+var VAUD = null;
 // 선생님 그림(img/host.png)이 없을 때 쓰는 검은 가면 실루엣
 var MASK = '<svg viewBox="0 0 400 560" xmlns="http://www.w3.org/2000/svg"><defs>' +
   '<radialGradient id="mk" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#3a3a44"/><stop offset=".35" stop-color="#121216"/><stop offset="1" stop-color="#020203"/></radialGradient>' +
@@ -448,15 +503,26 @@ function pickVoice() {
 function say(text, onEnd, grave) {
   var done = false, guard;
   var fin = function () { if (done) return; done = true; clearTimeout(guard); if (onEnd) onEnd(); };
-  guard = setTimeout(fin, 4000 + text.length * (grave ? 320 : 260));    // 목소리가 없거나 끝났다는 신호가 안 와도 넘어가게
-  if (window.speechSynthesis) {
-    speechSynthesis.cancel();
-    var u = new SpeechSynthesisUtterance(spoken(text)), v = pickVoice();
-    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'ko-KR';
-    u.pitch = Math.max(0.1, +HV.pitch - (grave ? 0.08 : 0)); u.rate = +HV.rate * (grave ? 0.9 : 1); u.onend = fin; u.onerror = fin;
-    speechSynthesis.speak(u);
-  }
-  return { cancel: function () { done = true; clearTimeout(guard); if (window.speechSynthesis) speechSynthesis.cancel(); } };
+  var tts = function () {
+    clearTimeout(guard); guard = setTimeout(fin, 4000 + text.length * (grave ? 320 : 260));    // 목소리가 없거나 끝났다는 신호가 안 와도 넘어가게
+    if (window.speechSynthesis) {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(spoken(text)), v = pickVoice();
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'ko-KR';
+      u.pitch = Math.max(0.1, +HV.pitch - (grave ? 0.08 : 0)); u.rate = +HV.rate * (grave ? 0.9 : 1); u.onend = fin; u.onerror = fin;
+      speechSynthesis.speak(u);
+    }
+  };
+  if (VAUD) { VAUD.onended = VAUD.onerror = null; VAUD.pause(); VAUD = null; }
+  if (HV.rec !== false && VOICE[text]) {
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    var au = VAUD = new Audio(VOICE[text]), bad = function () { if (!done && VAUD === au) { VAUD = null; tts(); } };
+    guard = setTimeout(fin, 6000 + text.length * 300);
+    au.onloadedmetadata = function () { if (done) return; clearTimeout(guard); guard = setTimeout(fin, au.duration * 1000 + 2500); };
+    au.onended = fin; au.onerror = bad;
+    var pr = au.play(); if (pr && pr.catch) pr.catch(bad);
+  } else tts();
+  return { cancel: function () { done = true; clearTimeout(guard); if (VAUD) { VAUD.onended = VAUD.onerror = null; VAUD.pause(); VAUD = null; } if (window.speechSynthesis) speechSynthesis.cancel(); } };
 }
 // 소리로 읽을 때만: 도형 기호를 말로(화면 글자는 그대로)
 function spoken(t) { return String(t).replace(/●/g, '동그라미').replace(/★/g, '별').replace(/▲/g, '세모').replace(/■/g, '네모').replace(/◆/g, '마름모').replace(/×/g, ' 곱하기 ').replace(/→/g, ', '); }
@@ -465,7 +531,7 @@ function KN(n) { return ['영', '한', '두', '세', '네', '다섯', '여섯', 
 function NAR(key) {
   if (key === 'intro') return { t: 'Final Game', L: [
     ['커뮤니티 Part 2\n<b>최종전</b>', '반갑습니다. 커뮤니티 파트 투, 최종전에 오신 것을 환영합니다.'],
-    ['광양제철고의\n<b>두뇌</b>를 시험하겠습니다', '지금부터, 광양제철고의 두뇌를 시험하겠습니다.'],
+    ['광양제철고의\n<b>두뇌</b>를 시험하겠습니다', '지금부터, 광양제철고의 두뇌를 시험하겠습니다.', 'host_title.webp'],
     ['① 기억의 방\n② 비밀 코드\n③ 울타리 치기', '오늘 여러분은 세 개의 게임을 치르게 됩니다. 기억의 방. 비밀 코드. 그리고, 울타리 치기.'],
     ['게임마다\n1위 <b>4</b> · 2위 <b>3</b> · 3위 <b>2</b> · 4위 <b>1</b>', '각 게임의 순위에 따라 1위는 4점, 2위는 3점, 3위는 2점, 4위는 1점을 얻습니다.'],
     ['세 게임 합계 → 최종 순위\n동점이면 <b>③ 울타리 치기</b> 순위', '세 게임의 점수를 모두 더해 최종 순위를 정합니다. 합계가 같다면, 마지막 게임 울타리 치기에서 순위가 높은 모둠이 앞섭니다.'],
@@ -514,7 +580,7 @@ function hostOpen(key) {
   hostInit().then(function () {
     $('hostFig').innerHTML = hostFig(); $('hTtl').textContent = n.t; H.L = n.L; H.i = 0;
     $('host').classList.toggle('cine', !!HOSTBG); if (HOSTBG) $('hBg').style.backgroundImage = 'url(' + HOSTBG + ')';
-    $('host').classList.add('on'); droneOn(); hostLine();
+    $('host').classList.remove('ready'); $('host').classList.add('on'); hostLine();
   });
 }
 function hostLine() {
@@ -522,6 +588,8 @@ function hostLine() {
   if (H.i >= H.L.length) { setTimeout(hostClose, 900); return; }
   var ln = H.L[H.i], my = H.i;
   $('hBig').innerHTML = ln[0] || ''; $('hSub').textContent = ln[1]; $('hPg').textContent = (H.i + 1) + ' / ' + H.L.length;
+  var card = !!(ln[2] && HOSTBG); $('host').classList.toggle('card', card);
+  if (HOSTBG) $('hBg').style.backgroundImage = 'url(' + (card ? ln[2] : HOSTBG) + ')';
   $('host').classList.add('talk');
   if (H.cur) H.cur.cancel();
   H.cur = say(ln[1], function () {
@@ -529,12 +597,12 @@ function hostLine() {
     setTimeout(function () { if (H.L && H.i === my) { H.i++; hostLine(); } }, 1300);
   }, true);
 }
-function hostClose() { if (H.cur) H.cur.cancel(); H.L = null; $('host').classList.remove('on', 'talk'); droneOff(); }
+function hostClose() { if (H.cur) H.cur.cancel(); H.L = null; $('host').classList.remove('on', 'talk', 'ready'); droneOff(); }
 // 낮게 깔리는 배경음 (Web Audio, 파일 없음)
 var DR = null;
 function droneOn() {
   try {
-    if (DR || HV.drone === false) return; var C = new (window.AudioContext || window.webkitAudioContext)(), g = C.createGain(), f = C.createBiquadFilter();
+    return; if (DR) return; var C = new (window.AudioContext || window.webkitAudioContext)(), g = C.createGain(), f = C.createBiquadFilter();
     f.type = 'lowpass'; f.frequency.value = 220; g.gain.value = 0; g.connect(C.destination); f.connect(g);
     [[55, 'sawtooth', .5], [55.4, 'sawtooth', .5], [82.4, 'sine', .7]].forEach(function (o) { var x = C.createOscillator(), y = C.createGain(); x.type = o[1]; x.frequency.value = o[0]; y.gain.value = o[2]; x.connect(y); y.connect(f); x.start(); });
     var l = C.createOscillator(), lg = C.createGain(); l.frequency.value = .07; lg.gain.value = 90; l.connect(lg); lg.connect(f.frequency); l.start();
@@ -546,12 +614,27 @@ $('hNext').onclick = function (e) { e.stopPropagation(); if (!H.L) return; H.i++
 $('hPrev').onclick = function (e) { e.stopPropagation(); if (!H.L) return; H.i = Math.max(0, H.i - 1); hostLine(); };
 $('hStop').onclick = function (e) { e.stopPropagation(); hostClose(); };
 document.addEventListener('keydown', function (e) {
-  if (!H.L) return;
+  if (!H.L) { if (e.key === 'Escape' && $('host').classList.contains('ready')) hostClose(); return; }
   if (e.key === 'Escape') hostClose();
   else if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); H.i++; hostLine(); }
   else if (e.key === 'ArrowLeft') { H.i = Math.max(0, H.i - 1); hostLine(); }
 });
 document.querySelectorAll('[data-host]').forEach(function (b) { b.onclick = function () { if (!D) { askPin(); return; } hostOpen(b.dataset.host); }; });
+// 2026-11-25: 첫 화면부터 오프닝. 아직 아무 게임도 안 했을 때, 연결되자마자 한 번.
+// 브라우저는 화면을 한 번이라도 누르기 전에는 소리를 막으므로, 아직 안 눌렀으면 '누르면 시작' 화면을 먼저 띄움.
+var SPL = false;
+function splash() {
+  if (SPL || !D || !S) return; SPL = true;
+  if ([0, 1, 2].some(played) || H.L) return;
+  if (navigator.userActivation && navigator.userActivation.hasBeenActive) { hostOpen('intro'); return; }
+  hostInit().then(function () {
+    $('hostFig').innerHTML = hostFig(); $('hTtl').textContent = 'Final Game'; H.L = null;
+    $('hBig').innerHTML = '커뮤니티 Part 2<br><b>최종전</b>'; $('hSub').textContent = '▶ 화면을 누르면 시작합니다'; $('hPg').textContent = '';
+    $('host').classList.toggle('cine', !!HOSTBG); $('host').classList.remove('card', 'talk'); if (HOSTBG) $('hBg').style.backgroundImage = 'url(' + HOSTBG + ')';
+    $('host').classList.add('on', 'ready');
+  });
+}
+$('host').addEventListener('click', function () { if ($('host').classList.contains('ready')) hostOpen('intro'); });
 // 작은 진행자: 비밀 코드 조건 읽기 · 최종 순위 발표
 var MQ = [], MQon = false;
 function miniSay(lines) {
@@ -594,7 +677,8 @@ $('vPitch').oninput = function () { HV.pitch = +this.value; hvSave(); };
 $('vRate').oninput = function () { HV.rate = +this.value; hvSave(); };
 $('vReadQ').onchange = function () { HV.readQ = this.checked; hvSave(); };
 $('vReadRev').onchange = function () { HV.readRev = this.checked; hvSave(); };
-$('vDrone').checked = HV.drone !== false; $('vDrone').onchange = function () { HV.drone = this.checked; hvSave(); };
+$('vRec').checked = HV.rec !== false; $('vRec').onchange = function () { HV.rec = this.checked; hvSave(); };
+
 $('vTest').onclick = function () { miniSay(['반갑습니다. 커뮤니티 파트 투, 최종전에 오신 것을 환영합니다.']); };
 </script>
 </body></html>
