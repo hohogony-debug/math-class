@@ -79,12 +79,14 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
 /* 진행자 사진이 있을 때: 사진을 화면 가득, 글은 왼쪽, 자막은 아래 */
 .host.cine{background:#000}
 .host .bg{display:none}
-.host.cine .bg{display:block;position:absolute;inset:0;background-size:cover;background-position:center 30%;transform:scale(1.04);animation:hzoom 40s linear infinite alternate,hbreath 5s ease-in-out infinite}
-/* 2026-11-25: 진행자가 숨 쉬듯(늘) + 말할 때 고개를 살짝 움직이는 느낌 */
-.host.cine.talk .bg{animation:hzoom 40s linear infinite alternate,hbreath 5s ease-in-out infinite,hsway 3.4s ease-in-out infinite,hlit 1.7s ease-in-out infinite}
-@keyframes hbreath{0%,100%{scale:1}50%{scale:1.014}}
-@keyframes hsway{0%,100%{translate:0 0;rotate:0deg}22%{translate:-.35% -.45%;rotate:-.3deg}48%{translate:.1% -.15%;rotate:.08deg}74%{translate:.4% -.4%;rotate:.3deg}}
-@keyframes hlit{0%,100%{filter:brightness(1)}50%{filter:brightness(1.07)}}
+.host.cine .bg{display:block;position:absolute;inset:0;background-size:cover;background-position:center 30%}
+/* 2026-11-25: 배경은 그대로, 사람(진행자)만 따로 오린 층(host_man.webp)이 살짝 움직임. 배경은 사람을 지운 판(host_plate.webp) */
+.host .man{display:none;position:absolute;inset:0;background-size:cover;background-position:center 30%;pointer-events:none;transform-origin:47% 80%}
+.host.cine.hasman .man{display:block;animation:mbreath 5.5s ease-in-out infinite}
+.host.cine.hasman.talk .man{animation:mbreath 5.5s ease-in-out infinite,msway 4s ease-in-out infinite}
+.host.card .man{display:none!important}
+@keyframes mbreath{0%,100%{scale:1}50%{scale:1.005}}
+@keyframes msway{0%,100%{rotate:0deg;translate:0 0}25%{rotate:-.28deg;translate:-.12% -.08%}50%{rotate:.04deg;translate:0 -.15%}75%{rotate:.28deg;translate:.12% -.08%}}
 .host.ready{cursor:pointer}
 .host.ready .ctl,.host.ready .pg{display:none}
 .host.ready .sub{animation:hblink 1.6s ease-in-out infinite}
@@ -183,7 +185,7 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
 <div class="modal" id="md"><div class="in"><div id="mdT" style="font-size:20px;font-weight:800;margin-bottom:14px"></div><div id="mdB"></div>
 <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="b g" id="mdN">취소</button><button class="b" id="mdY">확인</button></div></div></div>
 
-<div class="host" id="host"><div class="bg" id="hBg"></div><div class="shade"></div><div class="fig"><div class="glow"></div><div id="hostFig"></div></div>
+<div class="host" id="host"><div class="bg" id="hBg"></div><div class="man" id="hMan"></div><div class="shade"></div><div class="fig"><div class="glow"></div><div id="hostFig"></div></div>
 <div class="side"><div class="ttl" id="hTtl"></div><div class="big" id="hBig"></div><div class="sub" id="hSub"></div><div class="wave"><i></i><i></i><i></i><i></i><i></i></div></div>
 <div class="pg" id="hPg"></div>
 <div class="ctl"><button id="hPrev">◀ 이전</button><button id="hNext">다음 ▶</button><button id="hStop">✕ 닫기</button></div></div>
@@ -487,7 +489,9 @@ var MASK = '<svg viewBox="0 0 400 560" xmlns="http://www.w3.org/2000/svg"><defs>
   '<path d="M136 205 C152 192 178 192 190 206 C176 214 152 216 136 205 Z" fill="#000"/><path d="M210 206 C222 192 248 192 264 205 C248 216 224 214 210 206 Z" fill="#000"/>' +
   '<path d="M200 225 L200 285" stroke="#26262d" stroke-width="2"/><path d="M170 312 C190 320 210 320 230 312" stroke="#26262d" stroke-width="2" fill="none"/></svg>';
 var HOSTIMG = null, HOSTBG = '', HOSTFACE = '';
-(function () { if (!window.API_URL) return; var a = new Image(); a.onload = function () { HOSTBG = 'host_bg.webp'; }; a.src = 'host_bg.webp';
+(function () { if (!window.API_URL) return; var a = new Image(); a.onload = function () { if (!HOSTBG) HOSTBG = 'host_bg.webp'; }; a.src = 'host_bg.webp';
+  var pl = new Image(), mn = new Image(), k = 0, ok = function () { if (++k < 2) return; HOSTBG = 'host_plate.webp'; $('hMan').style.backgroundImage = 'url(host_man.webp)'; $('host').classList.add('hasman'); };
+  pl.onload = ok; mn.onload = ok; pl.src = 'host_plate.webp'; mn.src = 'host_man.webp';
   var b = new Image(); b.onload = function () { HOSTFACE = 'host_face.webp'; }; b.src = 'host_face.webp'; })();
 function hostFig() { return HOSTIMG ? '<img src="' + HOSTIMG + '">' : MASK; }
 function miniFig() { return HOSTFACE ? '<img src="' + HOSTFACE + '" style="top:0;height:100%;object-fit:cover">' : hostFig(); }
