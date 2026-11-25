@@ -520,7 +520,12 @@ function say(text, onEnd, grave) {
     guard = setTimeout(fin, 6000 + text.length * 300);
     au.onloadedmetadata = function () { if (done) return; clearTimeout(guard); guard = setTimeout(fin, au.duration * 1000 + 2500); };
     au.onended = fin; au.onerror = bad;
-    var pr = au.play(); if (pr && pr.catch) pr.catch(bad);
+    var pr = au.play(); if (pr && pr.catch) pr.catch(function (e) {
+      if (e && e.name === 'NotAllowedError' && H.L && !done) {          // 아직 화면을 안 눌러서 소리가 막힘 → 이 줄에서 멈추고 누르면 다시
+        done = true; clearTimeout(guard); VAUD = null; $('host').classList.remove('talk'); $('host').classList.add('ready');
+        $('hSub').textContent = '▶ 화면을 누르면 소리와 함께 시작합니다';
+      } else bad();
+    });
   } else tts();
   return { cancel: function () { done = true; clearTimeout(guard); if (VAUD) { VAUD.onended = VAUD.onerror = null; VAUD.pause(); VAUD = null; } if (window.speechSynthesis) speechSynthesis.cancel(); } };
 }
@@ -626,15 +631,9 @@ var SPL = false;
 function splash() {
   if (SPL || !D || !S) return; SPL = true;
   if ([0, 1, 2].some(played) || H.L) return;
-  if (navigator.userActivation && navigator.userActivation.hasBeenActive) { hostOpen('intro'); return; }
-  hostInit().then(function () {
-    $('hostFig').innerHTML = hostFig(); $('hTtl').textContent = 'Final Game'; H.L = null;
-    $('hBig').innerHTML = '커뮤니티 Part 2<br><b>최종전</b>'; $('hSub').textContent = '▶ 화면을 누르면 시작합니다'; $('hPg').textContent = '';
-    $('host').classList.toggle('cine', !!HOSTBG); $('host').classList.remove('card', 'talk'); if (HOSTBG) $('hBg').style.backgroundImage = 'url(' + HOSTBG + ')';
-    $('host').classList.add('on', 'ready');
-  });
+  hostOpen('intro');                    // 2026-11-25: 누르지 않아도 바로 오프닝 (소리가 막히면 say()가 '누르면 시작'으로 바꿈)
 }
-$('host').addEventListener('click', function () { if ($('host').classList.contains('ready')) hostOpen('intro'); });
+$('host').addEventListener('click', function () { if (!$('host').classList.contains('ready')) return; $('host').classList.remove('ready'); if (H.L) hostLine(); else hostOpen('intro'); });
 // 작은 진행자: 비밀 코드 조건 읽기 · 최종 순위 발표
 var MQ = [], MQon = false;
 function miniSay(lines) {
