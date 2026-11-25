@@ -75,6 +75,20 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
 .host .ctl:hover{opacity:1}
 .host .ctl button{font:inherit;font-size:15px;background:#1b1b22;color:#ddd;border:1px solid #333;border-radius:10px;padding:8px 14px;cursor:pointer}
 .host .pg{position:absolute;left:2vw;bottom:2.4vh;font-size:14px;color:#666;letter-spacing:.2em}
+
+/* 진행자 사진이 있을 때: 사진을 화면 가득, 글은 왼쪽, 자막은 아래 */
+.host.cine{background:#000}
+.host .bg{display:none}
+.host.cine .bg{display:block;position:absolute;inset:0;background-size:cover;background-position:center 30%;transform:scale(1.04);animation:hzoom 40s linear infinite alternate}
+@keyframes hzoom{from{transform:scale(1.04)}to{transform:scale(1.12)}}
+.host.cine .shade{position:absolute;inset:0;background:linear-gradient(90deg,#000e 0%,#000b 26%,#0000 52%),linear-gradient(0deg,#000f 0%,#000a 20%,#0000 42%)}
+.host.cine .fig{display:none}
+.host.cine .side{position:relative;flex:0 0 40%;padding:8vh 0 26vh 5vw}
+.host.cine .big{font-size:3.4vw;text-shadow:0 2px 18px #000}
+.host.cine .sub{position:fixed;left:8vw;right:8vw;bottom:7vh;margin:0;border:0;padding:0;text-align:center;font-size:2vw;font-weight:600;color:#f3efe6;text-shadow:0 2px 10px #000,0 0 3px #000}
+.host.cine .wave{position:fixed;left:50%;bottom:3vh;transform:translateX(-50%);margin:0}
+.host.cine.talk .shade{animation:hred 2.4s ease-in-out infinite}
+@keyframes hred{0%,100%{box-shadow:inset 0 0 0 0 #0000}50%{box-shadow:inset 0 0 18vh 0 #7a0a1433}}
 /* 작은 진행자: 문제를 읽을 때 칠판 오른쪽 아래 */
 .mini{position:fixed;right:18px;bottom:18px;z-index:45;display:none;align-items:flex-end;gap:14px;max-width:62vw;pointer-events:none}
 .mini.on{display:flex}
@@ -144,7 +158,7 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
  <span>높낮이 <input id="vPitch" type="range" min="0.5" max="1.3" step="0.05" style="width:140px;vertical-align:middle;padding:0"></span>
  <span>빠르기 <input id="vRate" type="range" min="0.7" max="1.2" step="0.05" style="width:140px;vertical-align:middle;padding:0"></span>
  <button class="b g" id="vTest">🔊 들어 보기</button></div>
- <div class="row" style="margin-top:12px"><label style="font-size:18px"><input type="checkbox" id="vReadQ"> 비밀 코드 문제를 열면 조건을 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vReadRev"> 최종 순위 발표 읽어 주기</label></div></div>
+ <div class="row" style="margin-top:12px"><label style="font-size:18px"><input type="checkbox" id="vReadQ"> 비밀 코드 문제를 열면 조건을 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vReadRev"> 최종 순위 발표 읽어 주기</label><label style="font-size:18px;margin-left:18px"><input type="checkbox" id="vDrone"> 진행자 화면 배경음</label></div></div>
  <div class="pan"><h2>처음부터</h2><p class="mut">모든 게임 기록을 지웁니다(모둠 이름은 남김). 수업 시작 전 연습해 본 뒤에 누르세요.</p><button class="b r" id="resetAll">전부 초기화</button></div>
 </section>
 </main>
@@ -152,7 +166,7 @@ input{font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:1p
 <div class="modal" id="md"><div class="in"><div id="mdT" style="font-size:20px;font-weight:800;margin-bottom:14px"></div><div id="mdB"></div>
 <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="b g" id="mdN">취소</button><button class="b" id="mdY">확인</button></div></div></div>
 
-<div class="host" id="host"><div class="fig"><div class="glow"></div><div id="hostFig"></div></div>
+<div class="host" id="host"><div class="bg" id="hBg"></div><div class="shade"></div><div class="fig"><div class="glow"></div><div id="hostFig"></div></div>
 <div class="side"><div class="ttl" id="hTtl"></div><div class="big" id="hBig"></div><div class="sub" id="hSub"></div><div class="wave"><i></i><i></i><i></i><i></i><i></i></div></div>
 <div class="pg" id="hPg"></div>
 <div class="ctl"><button id="hPrev">◀ 이전</button><button id="hNext">다음 ▶</button><button id="hStop">✕ 닫기</button></div></div>
@@ -402,9 +416,9 @@ $('nameSave').onclick = function () { act('names', [].map.call(document.querySel
 $('resetAll').onclick = function () { modal('정말 모든 기록을 지울까요?', '<p>되돌릴 수 없습니다.</p>').then(function (y) { if (y) act('reset'); }); };
 
 // ---------- 검은 가면 진행자 (규칙·문제를 말로 설명) ----------
-var HV = { voice: '', pitch: 0.8, rate: 0.95, readQ: true, readRev: true };
-try { var hv0 = JSON.parse(localStorage.getItem('cm2voice') || '{}'); for (var k0 in hv0) HV[k0] = hv0[k0]; } catch (e) {}
-function hvSave() { try { localStorage.setItem('cm2voice', JSON.stringify(HV)); } catch (e) {} }
+var HV = { voice: '', pitch: 0.7, rate: 0.9, readQ: true, readRev: true };
+try { var hv0 = JSON.parse(localStorage.getItem('cm2voice2') || '{}'); for (var k0 in hv0) HV[k0] = hv0[k0]; } catch (e) {}
+function hvSave() { try { localStorage.setItem('cm2voice2', JSON.stringify(HV)); } catch (e) {} }
 // 선생님 그림(img/host.png)이 없을 때 쓰는 검은 가면 실루엣
 var MASK = '<svg viewBox="0 0 400 560" xmlns="http://www.w3.org/2000/svg"><defs>' +
   '<radialGradient id="mk" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#3a3a44"/><stop offset=".35" stop-color="#121216"/><stop offset="1" stop-color="#020203"/></radialGradient>' +
@@ -417,8 +431,11 @@ var MASK = '<svg viewBox="0 0 400 560" xmlns="http://www.w3.org/2000/svg"><defs>
   '<path d="M128 110 C150 80 190 72 214 76 C170 92 142 130 134 180 C128 160 124 132 128 110 Z" fill="url(#hl)" opacity=".5"/>' +
   '<path d="M136 205 C152 192 178 192 190 206 C176 214 152 216 136 205 Z" fill="#000"/><path d="M210 206 C222 192 248 192 264 205 C248 216 224 214 210 206 Z" fill="#000"/>' +
   '<path d="M200 225 L200 285" stroke="#26262d" stroke-width="2"/><path d="M170 312 C190 320 210 320 230 312" stroke="#26262d" stroke-width="2" fill="none"/></svg>';
-var HOSTIMG = null;
+var HOSTIMG = null, HOSTBG = '', HOSTFACE = '';
+(function () { if (!window.API_URL) return; var a = new Image(); a.onload = function () { HOSTBG = 'host_bg.webp'; }; a.src = 'host_bg.webp';
+  var b = new Image(); b.onload = function () { HOSTFACE = 'host_face.webp'; }; b.src = 'host_face.webp'; })();
 function hostFig() { return HOSTIMG ? '<img src="' + HOSTIMG + '">' : MASK; }
+function miniFig() { return HOSTFACE ? '<img src="' + HOSTFACE + '" style="top:0;height:100%;object-fit:cover">' : hostFig(); }
 function hostInit() { if (HOSTIMG !== null) return Promise.resolve(); return img('host').then(function (u) { HOSTIMG = u || ''; }).catch(function () { HOSTIMG = ''; }); }
 function koVoices() { return (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(function (v) { return /^ko/i.test(v.lang); }); }
 function pickVoice() {
@@ -428,15 +445,15 @@ function pickVoice() {
   for (var i = 0; i < pref.length; i++) { var g = vs.filter(function (v) { return pref[i].test(v.name); })[0]; if (g) return g; }
   return vs[0];
 }
-function say(text, onEnd) {
+function say(text, onEnd, grave) {
   var done = false, guard;
   var fin = function () { if (done) return; done = true; clearTimeout(guard); if (onEnd) onEnd(); };
-  guard = setTimeout(fin, 4000 + text.length * 260);    // 목소리가 없거나 끝났다는 신호가 안 와도 넘어가게
+  guard = setTimeout(fin, 4000 + text.length * (grave ? 320 : 260));    // 목소리가 없거나 끝났다는 신호가 안 와도 넘어가게
   if (window.speechSynthesis) {
     speechSynthesis.cancel();
     var u = new SpeechSynthesisUtterance(spoken(text)), v = pickVoice();
     if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'ko-KR';
-    u.pitch = +HV.pitch; u.rate = +HV.rate; u.onend = fin; u.onerror = fin;
+    u.pitch = Math.max(0.1, +HV.pitch - (grave ? 0.08 : 0)); u.rate = +HV.rate * (grave ? 0.9 : 1); u.onend = fin; u.onerror = fin;
     speechSynthesis.speak(u);
   }
   return { cancel: function () { done = true; clearTimeout(guard); if (window.speechSynthesis) speechSynthesis.cancel(); } };
@@ -448,6 +465,7 @@ function KN(n) { return ['영', '한', '두', '세', '네', '다섯', '여섯', 
 function NAR(key) {
   if (key === 'intro') return { t: 'Final Game', L: [
     ['커뮤니티 Part 2\n<b>최종전</b>', '반갑습니다. 커뮤니티 파트 투, 최종전에 오신 것을 환영합니다.'],
+    ['광양제철고의\n<b>두뇌</b>를 시험하겠습니다', '지금부터, 광양제철고의 두뇌를 시험하겠습니다.'],
     ['① 기억의 방\n② 비밀 코드\n③ 울타리 치기', '오늘 여러분은 세 개의 게임을 치르게 됩니다. 기억의 방. 비밀 코드. 그리고, 울타리 치기.'],
     ['게임마다\n1위 <b>4</b> · 2위 <b>3</b> · 3위 <b>2</b> · 4위 <b>1</b>', '각 게임의 순위에 따라 1위는 4점, 2위는 3점, 3위는 2점, 4위는 1점을 얻습니다.'],
     ['세 게임 합계 → 최종 순위\n동점이면 <b>③ 울타리 치기</b> 순위', '세 게임의 점수를 모두 더해 최종 순위를 정합니다. 합계가 같다면, 마지막 게임 울타리 치기에서 순위가 높은 모둠이 앞섭니다.'],
@@ -495,7 +513,8 @@ function hostOpen(key) {
   var n = NAR(key); if (!n) return;
   hostInit().then(function () {
     $('hostFig').innerHTML = hostFig(); $('hTtl').textContent = n.t; H.L = n.L; H.i = 0;
-    $('host').classList.add('on'); hostLine();
+    $('host').classList.toggle('cine', !!HOSTBG); if (HOSTBG) $('hBg').style.backgroundImage = 'url(' + HOSTBG + ')';
+    $('host').classList.add('on'); droneOn(); hostLine();
   });
 }
 function hostLine() {
@@ -507,10 +526,22 @@ function hostLine() {
   if (H.cur) H.cur.cancel();
   H.cur = say(ln[1], function () {
     $('host').classList.remove('talk');
-    setTimeout(function () { if (H.L && H.i === my) { H.i++; hostLine(); } }, 900);
-  });
+    setTimeout(function () { if (H.L && H.i === my) { H.i++; hostLine(); } }, 1300);
+  }, true);
 }
-function hostClose() { if (H.cur) H.cur.cancel(); H.L = null; $('host').classList.remove('on', 'talk'); }
+function hostClose() { if (H.cur) H.cur.cancel(); H.L = null; $('host').classList.remove('on', 'talk'); droneOff(); }
+// 낮게 깔리는 배경음 (Web Audio, 파일 없음)
+var DR = null;
+function droneOn() {
+  try {
+    if (DR || HV.drone === false) return; var C = new (window.AudioContext || window.webkitAudioContext)(), g = C.createGain(), f = C.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 220; g.gain.value = 0; g.connect(C.destination); f.connect(g);
+    [[55, 'sawtooth', .5], [55.4, 'sawtooth', .5], [82.4, 'sine', .7]].forEach(function (o) { var x = C.createOscillator(), y = C.createGain(); x.type = o[1]; x.frequency.value = o[0]; y.gain.value = o[2]; x.connect(y); y.connect(f); x.start(); });
+    var l = C.createOscillator(), lg = C.createGain(); l.frequency.value = .07; lg.gain.value = 90; l.connect(lg); lg.connect(f.frequency); l.start();
+    g.gain.setValueAtTime(0, C.currentTime); g.gain.linearRampToValueAtTime(0.055, C.currentTime + 2.5); DR = { C: C, g: g };
+  } catch (e) { DR = null; }
+}
+function droneOff() { if (!DR) return; var d = DR; DR = null; try { d.g.gain.linearRampToValueAtTime(0, d.C.currentTime + 1.2); setTimeout(function () { d.C.close(); }, 1400); } catch (e) {} }
 $('hNext').onclick = function (e) { e.stopPropagation(); if (!H.L) return; H.i++; hostLine(); };
 $('hPrev').onclick = function (e) { e.stopPropagation(); if (!H.L) return; H.i = Math.max(0, H.i - 1); hostLine(); };
 $('hStop').onclick = function (e) { e.stopPropagation(); hostClose(); };
@@ -525,7 +556,7 @@ document.querySelectorAll('[data-host]').forEach(function (b) { b.onclick = func
 var MQ = [], MQon = false;
 function miniSay(lines) {
   hostInit().then(function () {
-    $('miniFig').innerHTML = hostFig(); MQ = lines.slice(); $('mini').classList.add('on');
+    $('miniFig').innerHTML = miniFig(); MQ = lines.slice(); $('mini').classList.add('on');
     if (!MQon) miniNext();
   });
 }
@@ -546,8 +577,8 @@ function readReveal(n) {
   var fr = finalRanks(), order = [0, 1, 2, 3].sort(function (a, b) { return fr[b] - fr[a]; }), t = order[n - 1], tot = totals();
   if (t === undefined) return;
   var L = n === 1 ? ['최종 순위를 발표하겠습니다.'] : [];
-  if (fr[t] === 1) L.push('그리고, 최종 1위.', S.names[t] + '. ' + tot[t] + '점. 축하합니다.');
-  else L.push(fr[t] + '위. ' + S.names[t] + '. ' + tot[t] + '점.');
+  if (fr[t] === 1) L.push('그리고, 최종 1위.', (t + 1) + '모둠. ' + tot[t] + '점. 축하합니다.');
+  else L.push(fr[t] + '위. ' + (t + 1) + '모둠. ' + tot[t] + '점.');
   miniSay(L);
 }
 // 설정: 목소리 고르기
@@ -563,6 +594,7 @@ $('vPitch').oninput = function () { HV.pitch = +this.value; hvSave(); };
 $('vRate').oninput = function () { HV.rate = +this.value; hvSave(); };
 $('vReadQ').onchange = function () { HV.readQ = this.checked; hvSave(); };
 $('vReadRev').onchange = function () { HV.readRev = this.checked; hvSave(); };
+$('vDrone').checked = HV.drone !== false; $('vDrone').onchange = function () { HV.drone = this.checked; hvSave(); };
 $('vTest').onclick = function () { miniSay(['반갑습니다. 커뮤니티 파트 투, 최종전에 오신 것을 환영합니다.']); };
 </script>
 </body></html>
