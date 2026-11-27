@@ -301,7 +301,8 @@ function drawMem() {
   var M = $('memMain');
   if (S.g !== 'mem' || m.ph === 'idle') M.innerHTML = '<div class="mut" style="font-size:22px">라운드 버튼을 누르면 칠판에 원본 그림이 전체 화면으로 나오고, 시간이 끝나면 저절로 사라지면서 태블릿에 바뀐 그림이 나갑니다.</div>';
   else if (m.ph === 'show') { M.innerHTML = '<div class="row"><h2 style="margin:0">' + rn(m.r) + ' · 원본 공개 중</h2><span class="timer huge" style="margin-left:auto;font-size:60px" data-t0="' + m.t0 + '" data-dur="' + m.dur + '"></span></div>'; img('m' + m.r + 'a').then(function (u) { if (S.mem.ph === 'show') full(true, u, fmt(left(S.mem))); }); }
-  else if (m.ph === 'open') M.innerHTML = '<div class="row"><h2 style="margin:0">' + rn(m.r) + ' · 태블릿에서 표시 중</h2><span class="timer" style="margin-left:auto;font-size:60px" data-t0="' + m.t0 + '" data-dur="' + m.dur + '"></span></div>' +
+  else if (m.ph === 'open') M.innerHTML = '<div class="row"><h2 style="margin:0">' + rn(m.r) + ' · 바뀐 그림 · 태블릿에서 표시 중</h2><span class="timer" style="margin-left:auto;font-size:60px" data-t0="' + m.t0 + '" data-dur="' + m.dur + '"></span></div>' +
+      '<div style="margin-top:10px;text-align:center"><img id="memOpenImg" style="max-width:100%;max-height:62vh;border-radius:12px;display:inline-block"></div>' +   // 2026-11-27: 칠판에도 바뀐 그림(정답 표시 없이)
       '<div class="chips" style="margin-top:12px">' + m.who.map(function (t) { return '<span class="chip ' + (m.subs[t] ? 'ok' : '') + '">' + nm(t) + (m.subs[t] ? ' ✅ 제출' : ' … 표시 중') + '</span>'; }).join('') + '</div>' +
       '<div class="row" style="margin-top:12px"><button class="b r" id="memClose">지금 마감</button></div>';
   else if (m.ph === 'done') {
@@ -311,6 +312,7 @@ function drawMem() {
     memShow('b');
     $('memA').onclick = function () { memShow('a'); }; $('memB').onclick = function () { memShow('b'); };
   }
+  if ($('memOpenImg')) img('m' + m.r + 'b').then(function (u) { var e = $('memOpenImg'); if (e && S.mem.ph === 'open') e.src = u; });
   if ($('memClose')) $('memClose').onclick = function () { act('memDone'); };
   var rows = [0, 1, 2, 3].map(function (t) { var s = m.sc[t] || []; return '<tr><td class="tn">' + nm(t) + '</td><td>' + nv(s[0]) + '</td><td>' + nv(s[1]) + '</td><td>' + nv(s[2]) + '</td><td>' + (S.adj[0][t] ? (S.adj[0][t] > 0 ? '+' : '') + S.adj[0][t] : '') + '</td><td><b>' + memRaw(t) + '</b></td><td class="rank">' + (played(0) ? ranks(memRaw, memTb)[t] + '위' : '') + '</td></tr>'; });
   $('memTable').innerHTML = '<table><tr><th></th><th>1R</th><th>2R</th><th>3R</th><th>조정</th><th>합계</th><th>순위</th></tr>' + rows.join('') + '</table><p class="mut">합계가 같으면 3라운드 점수가 높은 모둠이 앞섭니다.</p>';
